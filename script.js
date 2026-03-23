@@ -1,0 +1,551 @@
+// ── STATE ──────────────────────────────────────────────────────
+// IMPORTANT: Update this URL with your GAS deployment URL
+const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbweDi1Y7ObdnBjlxuHPP6lCYkjSNMfjtVF2wHzGaLbyvpqyev85mqUzDqM_fbrn-xXp/exec'; // Replace YOUR_DEPLOYMENT_ID
+var P = null, testId = null;
+var Qs = [], idx = 0, ans = {}, skp = {};
+var timerSec = 0, timerInt = null, startMs = null, testInfo = null;
+var submitted = false;
+var pfCache = {};
+
+function optionMarks(i) { return Math.max(5 - i, 1); }
+
+// ── ROUTING ────────────────────────────────────────────────────
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(function (p) { p.classList.remove('active'); });
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function tab(t) {
+  ['signin', 'register'].forEach(function (x) {
+    var X = x.charAt(0).toUpperCase() + x.slice(1);
+    document.getElementById('tab' + X).classList.toggle('active', x === t);
+    document.getElementById('panel' + X).classList.toggle('active', x === t);
+  });
+  ['lMsg', 'rMsg', 'fMsg'].forEach(function (id) { var e = el(id); if (e) e.style.display = 'none'; });
+  var fi = el('forgotInline'); if (fi) fi.classList.remove('open');
+  if (t === 'signin' || t === 'register') loadOrganizations();
+}
+
+// ── UTILS ──────────────────────────────────────────────────────
+function el(id) { return document.getElementById(id); }
+function v(id) { return el(id).value.trim(); }
+function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function escQ(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+function togglePwd(id) { var f = el(id); f.type = f.type === 'password' ? 'text' : 'password'; }
+function busy(b, s, t, on) { el(b).disabled = on; el(s).style.display = on ? 'inline-block' : 'none'; if (t) el(t).style.display = on ? 'none' : 'inline'; }
+function msg(id, m, type) { var e = el(id); e.innerHTML = m; e.className = 'msg ' + type; e.style.display = 'block'; }
+
+// ── API HELPER ──────────────────────────────────────────────────────
+/**
+ * Call GAS API endpoint
+ * @param {string} action - API action name
+ * @param {object} params - Parameters to send
+ * @param {function} onSuccess - Success callback
+ * @param {function} onError - Error callback
+ */
+function callAPI(action, params, onSuccess, onError) {
+  const payload = { action: action, ...params };
+  fetch(GAS_API_URL, {
+    method: 'POST',
+    contentType: 'application/json',
+    body: JSON.stringify(payload)
+  })
+    .then(response => response.json())
+    .then(data => {
+      if (onSuccess) onSuccess(data);
+    })
+    .catch(err => {
+      console.error('API Error:', err);
+      if (onError) onError(err);
+    });
+}
+
+function toggleForgot() {
+  var fi = el('forgotInline');
+  fi.classList.toggle('open');
+  if (fi.classList.contains('open')) { el('fEmail').focus(); el('fMsg').style.display = 'none'; }
+}
+
+// ── TIMER ──────────────────────────────────────────────────────
+function stopTimer() {
+  if (timerInt) { clearInterval(timerInt); timerInt = null; }
+}
+
+// ── AUTH ────────────────────────────────────────────────────────
+function loadOrganizations() {
+  var orgSelects = [el('lOrg'), el('rOrg')];
+  orgSelects.forEach(function (orgSelect) {
+    if (!orgSelect) return;
+    orgSelect.innerHTML = '<option value="">-- Loading organizations... --</option>';
+  });
+  
+  callAPI('getOrganizations', {}, function (response) {
+    orgSelects.forEach(function (orgSelect) {
+      if (!orgSelect) return;
+      orgSelect.innerHTML = '<option value="">-- Select Organization --</option>';
+      if (response.success && response.organizations && response.organizations.length) {
+        response.organizations.forEach(function (org) {
+          var opt = document.createElement('option');
+          opt.value = org.organization_id;
+          // opt.textContent = org.name + (org.name !== org.organization_id ? ' (' + org.organization_id + ')' : '');
+          opt.textContent = org.name;
+          orgSelect.appendChild(opt);
+        });
+      } else {
+        orgSelect.innerHTML = '<option value="">No organizations available</option>';
+      }
+    });
+  }, function (err) {
+    orgSelects.forEach(function (orgSelect) {
+      if (!orgSelect) return;
+      orgSelect.innerHTML = '<option value="">Error loading organizations</option>';
+    });
+    console.error('Error loading organizations:', err);
+  });
+}
+
+function doLogin() {
+  var u = v('lUser'), pw = el('lPwd').value, orgId = el('lOrg').value;
+  el('lMsg').style.display = 'none';
+  if (!orgId) { msg('lMsg', 'Please select an organization.', 'err'); return; }
+  if (!u || !pw) { msg('lMsg', 'Please enter your email/mobile and password.', 'err'); return; }
+  busy('lBtn', 'lSpin', 'lBtnTxt', true);
+  callAPI('loginUser', {
+    emailOrMobile: u,
+    password: pw,
+    organizationId: orgId
+  }, function (r) {
+    busy('lBtn', 'lSpin', 'lBtnTxt', false);
+    if (r.success) { P = r.participant; loadDashboard(); }
+    else if (r.notFound) { msg('lMsg', '⚠ ' + r.message + ' <button class="tlink" onclick="tab(\'register\')" style="margin-left:4px;">Register →</button>', 'warn'); }
+    else { msg('lMsg', r.message, 'err'); }
+  }, function (e) {
+    busy('lBtn', 'lSpin', 'lBtnTxt', false);
+    msg('lMsg', 'Error: ' + e.message, 'err');
+  });
+}
+
+function doRegister() {
+  el('rMsg').style.display = 'none';
+  var orgId = el('rOrg').value;
+  if (!orgId) { msg('rMsg', 'Please select an organization.', 'err'); return; }
+  var data = {
+    organization_id: orgId,
+    name: v('rName'), date_of_birth: v('rDob'), mobile_number: v('rMobile'),
+    email: v('rEmail'), institution: v('rInst'), password: el('rPwd').value.trim(),
+    father_name: v('rFN'), father_mobile_number: v('rFM'), father_email: v('rFE'),
+    mother_name: v('rMN'), mother_mobile_number: v('rMM'), mother_email: v('rME')
+  };
+  if (!data.name || !data.email || !data.mobile_number || !data.password) {
+    msg('rMsg', 'Name, email, mobile and password are required.', 'err'); return;
+  }
+  busy('rBtn', 'rSpin', 'rBtnTxt', true);
+  callAPI('registerParticipant', data, function (r) {
+    busy('rBtn', 'rSpin', 'rBtnTxt', false);
+    if (r.success) { msg('rMsg', r.message + ' Switching to sign in…', 'ok'); setTimeout(function () { tab('signin'); }, 2000); }
+    else if (r.alreadyExists) { msg('rMsg', r.message + ' <button class="tlink" onclick="tab(\'signin\')" style="margin-left:4px;">Sign in →</button>', 'warn'); }
+    else { msg('rMsg', r.message, 'err'); }
+  }, function (e) {
+    busy('rBtn', 'rSpin', 'rBtnTxt', false);
+    msg('rMsg', 'Error: ' + e.message, 'err');
+  });
+}
+
+function doForgot() {
+  el('fMsg').style.display = 'none';
+  var email = v('fEmail');
+  if (!email) { msg('fMsg', 'Please enter your email.', 'err'); return; }
+  busy('fBtn', 'fSpin', 'fBtnTxt', true);
+  callAPI('forgotPassword', { email: email }, function (r) {
+    busy('fBtn', 'fSpin', 'fBtnTxt', false);
+    msg('fMsg', r.message, r.success ? 'ok' : 'err');
+    if (r.success) setTimeout(function () { el('forgotInline').classList.remove('open'); }, 3000);
+  }, function (e) {
+    busy('fBtn', 'fSpin', 'fBtnTxt', false);
+    msg('fMsg', 'Error: ' + e.message, 'err');
+  });
+}
+
+document.addEventListener('keydown', function (e) {
+  if (e.key !== 'Enter') return;
+  if (el('panelSignin').classList.contains('active') && !el('forgotInline').classList.contains('open')) doLogin();
+  if (el('panelSignin').classList.contains('active') && el('forgotInline').classList.contains('open')) doForgot();
+});
+
+// ── DASHBOARD ──────────────────────────────────────────────────
+function loadDashboard() {
+  if (!P) { showPage('pgAuth'); return; }
+  stopTimer();
+  submitted = false;
+  el('dTopName').textContent = P.name || '';
+  el('dName').textContent = P.name || '—';
+  el('dEmail').textContent = P.email || '—';
+  el('dMobile').textContent = P.mobile_number || '—';
+  el('dInst').textContent = P.institution || '—';
+  el('dDob').textContent = P.date_of_birth || '—';
+  el('dLogins').textContent = P.number_of_logins || '1';
+  el('dFather').textContent = P.father_name || (P.father_email || '—');
+  el('dMother').textContent = P.mother_name || (P.mother_email || '—');
+  el('dReg').textContent = P.registration_date || '—';
+  el('dTests').innerHTML = '<div class="cbox" style="min-height:140px;"><div class="ldr"></div><p>Loading tests…</p></div>';
+  showPage('pgDashboard');
+  callAPI('getTests', { organizationId: P.organization_id, participantId: P.participant_id }, function (r) {
+    if (r.success) renderTests(r.tests || []);
+    else el('dTests').innerHTML = '<p style="color:var(--err);padding:30px;text-align:center;">Failed: ' + esc(r.message) + '</p>';
+  }, function (e) {
+    el('dTests').innerHTML = '<p style="color:var(--err);padding:30px;text-align:center;">Failed: ' + esc(e.message) + '</p>';
+  });
+}
+
+function renderTests(tests) {
+  // Keep already-ready cache entries so returning from exam is instant
+  var fresh = {};
+  tests.forEach(function (t) {
+    if (pfCache[t.test_id] && pfCache[t.test_id].status === 'ready') fresh[t.test_id] = pfCache[t.test_id];
+  });
+  pfCache = fresh;
+
+  el('dTCount').textContent = tests.length + ' test' + (tests.length !== 1 ? 's' : '');
+  if (!tests.length) {
+    el('dTests').innerHTML = '<p style="text-align:center;color:var(--sub);padding:36px;">No tests available.</p>';
+    return;
+  }
+  var h = '<div class="tgrid">';
+  tests.forEach(function (t) {
+    var ready = pfCache[t.test_id] && pfCache[t.test_id].status === 'ready';
+    h += '<div class="tcard">'
+      + '<div class="ttop"><span class="tbadge">Test #' + t.test_id + '</span>'
+      + (t.department_name ? '<span class="dtag">' + esc(t.department_name) + '</span>' : '') + '</div>'
+      + '<div class="tname">' + esc(t.name) + '</div>'
+      + '<div class="tdesc">' + esc(t.description || 'Psychometric assessment') + '</div>'
+      + '<div class="tmeta">'
+      + '<div class="mb"><div class="ml">⏱ Duration</div><div class="mv">' + esc(String(t.duration_in_minutes)) + ' min</div></div>'
+      + '<div class="mb"><div class="ml">📝 Max Marks</div><div class="mv">' + esc(String(t.total_marks)) + '</div></div>'
+      + '</div>'
+      + '<div class="tfoot">'
+      + '<span class="pf-badge' + (ready ? ' ready' : '') + '" id="pf_' + t.test_id + '">' + (ready ? '✓ Ready' : '⏳ Preparing…') + '</span>'
+      + '<button class="bstart" onclick="startTest(' + t.test_id + ')">Take Test →</button>'
+      + '</div></div>';
+  });
+  el('dTests').innerHTML = h + '</div>';
+  tests.forEach(function (t) {
+    if (!pfCache[t.test_id] || pfCache[t.test_id].status === 'error') prefetch(t.test_id);
+  });
+}
+
+function prefetch(tid) {
+  pfCache[tid] = { status: 'loading', data: null };
+  callAPI('getExamData', { testId: tid, organizationId: P.organization_id }, function (data) {
+    if (data.success) {
+      pfCache[tid] = { status: 'ready', data: data };
+      var b = el('pf_' + tid);
+      if (b) { b.textContent = '✓ Ready'; b.className = 'pf-badge ready'; }
+    } else {
+      pfCache[tid] = { status: 'error', data: null };
+      var b = el('pf_' + tid);
+      if (b) b.className = 'pf-badge gone';
+    }
+  }, function () {
+    pfCache[tid] = { status: 'error', data: null };
+    var b = el('pf_' + tid);
+    if (b) b.className = 'pf-badge gone';
+  });
+}
+
+function doLogout() {
+  stopTimer();
+  P = null; testId = null; pfCache = {};
+  el('lUser').value = ''; el('lPwd').value = '';
+  showPage('pgAuth');
+}
+
+// ── EXAM ────────────────────────────────────────────────────────
+function startTest(tid) {
+  testId = tid; Qs = []; idx = 0; ans = {}; skp = {}; submitted = false;
+  stopTimer();
+  el('eTestName').textContent = 'Loading…';
+  el('eProg').style.width = '0%';
+  el('eTimer').textContent = '⏰ --:--';
+  el('eTimer').className = 'tpill';
+  el('eBody').innerHTML = '<div class="cbox" style="width:100%;"><div class="ldr"></div><p>Loading questions…</p><p class="lstep" id="lstep">Connecting…</p></div>';
+  showPage('pgExam');
+
+  if (pfCache[tid] && pfCache[tid].status === 'ready') {
+    onExamLoaded(pfCache[tid].data);
+    return;
+  }
+  var steps = ['Connecting to server…', 'Reading questions…', 'Almost ready…'], si = 0;
+  var stInt = setInterval(function () {
+    si = (si + 1) % steps.length; var e = el('lstep'); if (e) e.textContent = steps[si];
+  }, 1800);
+  callAPI('getExamData', { testId: tid, organizationId: P.organization_id }, function (data) {
+    clearInterval(stInt);
+    if (data.success) {
+      pfCache[tid] = { status: 'ready', data: data };
+      onExamLoaded(data);
+    } else {
+      el('eBody').innerHTML =
+        '<div class="cbox" style="width:100%;">'
+        + '<p style="color:var(--err);margin-bottom:14px;">Load failed: ' + esc(data.message) + '</p>'
+        + '<button class="bn bnext" onclick="loadDashboard()">← Back to Dashboard</button>'
+        + '</div>';
+    }
+  }, function (e) {
+    clearInterval(stInt);
+    el('eBody').innerHTML =
+      '<div class="cbox" style="width:100%;">'
+      + '<p style="color:var(--err);margin-bottom:14px;">Load failed: ' + esc(e.message) + '</p>'
+      + '<button class="bn bnext" onclick="loadDashboard()">← Back to Dashboard</button>'
+      + '</div>';
+  });
+}
+
+function onExamLoaded(data) {
+  testInfo = data.test; Qs = data.questions;
+  if (!Qs || !Qs.length) {
+    el('eBody').innerHTML =
+      '<div class="cbox" style="width:100%;">'
+      + '<p style="color:var(--err);margin-bottom:14px;">No questions found for this test.</p>'
+      + '<button class="bn bnext" onclick="loadDashboard()">← Back to Dashboard</button>'
+      + '</div>';
+    return;
+  }
+  el('eTestName').textContent = testInfo ? testInfo.name : 'Test';
+  timerSec = (testInfo && testInfo.duration_in_minutes ? parseInt(testInfo.duration_in_minutes) : 60) * 60;
+  startMs = Date.now(); startTimer(); buildExam(); renderQ();
+}
+
+function startTimer() {
+  stopTimer();
+  timerInt = setInterval(function () {
+    var rem = timerSec - Math.floor((Date.now() - startMs) / 1000);
+    if (rem <= 0) { stopTimer(); autoSubmit(); return; }
+    var m = Math.floor(rem / 60), s = rem % 60;
+    el('eTimer').textContent = '⏰ ' + (m < 10 ? '0' : '') + m + ':' + (s < 10 ? '0' : '') + s;
+    el('eTimer').className = 'tpill' + (rem <= 120 ? ' danger' : rem <= 300 ? ' warn' : '');
+  }, 1000);
+}
+
+function timeTaken() {
+  var s = Math.floor((Date.now() - startMs) / 1000);
+  return (Math.floor(s / 60) < 10 ? '0' : '') + Math.floor(s / 60) + ':' + (s % 60 < 10 ? '0' : '') + (s % 60) + ' min';
+}
+
+function buildExam() {
+  el('eBody').innerHTML =
+    '<div class="esb">'
+    + '<div class="sbh">Question Palette</div>'
+    + '<div class="sbsc" id="pal"></div>'
+    + '<div class="sbst">'
+    + '<div class="sbs"><div class="sv" id="sA">0</div><div class="sl">Done</div></div>'
+    + '<div class="sbs"><div class="sv" id="sS">0</div><div class="sl">Skip</div></div>'
+    + '<div class="sbs"><div class="sv" id="sL">' + Qs.length + '</div><div class="sl">Left</div></div>'
+    + '</div>'
+    + '<div class="sbleg">'
+    + '<div class="leg"><div class="ld" style="background:linear-gradient(135deg,#3d5afe,#1a237e);"></div>Answered</div>'
+    + '<div class="leg"><div class="ld" style="background:#fff8e1;border:1px solid #ffe082;"></div>Skipped</div>'
+    + '<div class="leg"><div class="ld" style="background:#fafbff;border:1px solid #dde1ec;"></div>Unvisited</div>'
+    + '</div></div>'
+    + '<div class="econt">'
+    + '<div class="qscroll" id="qA"></div>'
+    + '<div class="eftr"><div class="nrow">'
+    + '<button class="bn bprev" id="bPrev" onclick="prevQ()" disabled>← Prev</button>'
+    + '<button class="bn bskip" onclick="skipQ()">Skip</button>'
+    + '<button class="bn bnext" id="bNext" onclick="nextQ()">Next →</button>'
+    + '</div><button class="bn bsub" onclick="showModal()">Submit Test</button></div></div>';
+  buildPalette();
+}
+
+function buildPalette() {
+  var grp = {}, ord = [];
+  Qs.forEach(function (q, i) {
+    if (!grp[q.section]) { grp[q.section] = []; ord.push(q.section); }
+    grp[q.section].push({ q: q, i: i });
+  });
+  var h = '';
+  ord.forEach(function (sec) {
+    h += '<div class="sg"><div class="sgl">' + esc(sec) + '</div><div class="qgrid">';
+    grp[sec].forEach(function (item) {
+      var c = 'qb';
+      if (ans[item.q.question_id] !== undefined) c += ' ans';
+      else if (skp[item.q.question_id]) c += ' skp';
+      if (item.i === idx) c += ' cur';
+      h += '<div class="' + c + '" onclick="goQ(' + item.i + ')">' + (item.i + 1) + '</div>';
+    });
+    h += '</div></div>';
+  });
+  var pal = el('pal'); if (pal) pal.innerHTML = h;
+  var a = Object.keys(ans).length, s = Object.keys(skp).length;
+  if (el('sA')) { el('sA').textContent = a; el('sS').textContent = s; el('sL').textContent = Qs.length - a - s; }
+}
+
+function renderQ() {
+  var q = Qs[idx];
+  el('eProg').style.width = ((idx + 1) / Qs.length * 100).toFixed(1) + '%';
+  el('bPrev').disabled = (idx === 0);
+  el('bNext').textContent = idx === Qs.length - 1 ? 'Finish' : 'Next →';
+  var LT = ['A', 'B', 'C', 'D', 'E'], oh = '';
+  (q.options || []).forEach(function (o, i) {
+    var sel = (ans[q.question_id] && ans[q.question_id].value === o) ? 'sel' : '';
+    oh += '<div class="opt ' + sel + '" onclick="selOpt(this,\'' + escQ(o) + '\',' + q.question_id + ',' + i + ')">'
+      + '<div class="oltr">' + LT[i] + '</div>'
+      + '<div class="otxt">' + esc(o) + '</div></div>';
+  });
+  el('qA').innerHTML =
+    '<div class="qmr"><span class="qnum">Q ' + (idx + 1) + ' / ' + Qs.length + '</span>'
+    + '<span class="qst">' + esc(q.section) + '</span>'
+    + '<span class="qsi">(Sec ' + q.section_id + ')</span></div>'
+    + '<div class="qtxt">' + esc(q.question) + '</div>'
+    + '<div class="opts">' + oh + '</div>';
+  buildPalette();
+}
+
+function selOpt(div, val, qid, optIdx) {
+  document.querySelectorAll('.opt').forEach(function (o) {
+    o.classList.remove('sel');
+    var l = o.querySelector('.oltr'); l.style.background = ''; l.style.borderColor = ''; l.style.color = '';
+  });
+  div.classList.add('sel');
+  var l = div.querySelector('.oltr');
+  l.style.background = 'var(--sky)'; l.style.borderColor = 'var(--sky)'; l.style.color = '#fff';
+  var q = Qs[idx];
+  ans[qid] = { 
+    value: val, 
+    optionIndex: optIdx,
+    correct_answer: q.correct_answer,
+    positive_marks: q.positive_marks || 1,
+    negative_marks: q.negative_marks || 0,
+    marks: val === q.correct_answer ? (q.positive_marks || 1) : (q.negative_marks || 0)
+  };
+  delete skp[qid]; buildPalette();
+}
+
+function skipQ() { var q = Qs[idx]; skp[q.question_id] = true; delete ans[q.question_id]; buildPalette(); if (idx < Qs.length - 1) { idx++; renderQ(); } }
+function prevQ() { if (idx > 0) { idx--; renderQ(); } }
+function nextQ() { if (idx < Qs.length - 1) { idx++; renderQ(); } else showModal(); }
+function goQ(i) { idx = i; renderQ(); }
+
+// ── BACK CONFIRM — custom modal, NO confirm() ─────────────────
+// confirm() is silently blocked/returns false in many browsers
+// when the page runs inside a GAS iframe (sandboxed origin).
+function confirmBack() {
+  el('backOverlay').classList.add('on');
+}
+function closeBackModal() {
+  el('backOverlay').classList.remove('on');
+}
+function doGoBack() {
+  el('backOverlay').classList.remove('on');
+  stopTimer();
+  loadDashboard();
+}
+
+// ── SUBMIT MODAL ───────────────────────────────────────────────
+function showModal() {
+  var a = Object.keys(ans).length, s = Object.keys(skp).length;
+  el('mAns').textContent = a; el('mSkp').textContent = s; el('mTot').textContent = Qs.length;
+  el('subOverlay').classList.add('on');
+}
+function closeModal() { el('subOverlay').classList.remove('on'); }
+function autoSubmit() { closeModal(); doSubmit(); }
+
+// ── SUBMIT ─────────────────────────────────────────────────────
+function doSubmit() {
+  if (submitted) return;
+  submitted = true;
+  var msb = el('modalSubBtn'); if (msb) msb.disabled = true;
+  stopTimer();
+  closeModal();
+
+  var tt = timeTaken();
+  var responses = Qs.map(function (q) {
+    var a = ans[q.question_id];
+    return {
+      questionId: q.question_id,
+      response: a ? a.value : '',
+      correct_answer: q.correct_answer || '',
+      marks: a ? a.marks : 0,
+      section: q.section,
+      section_id: q.section_id
+    };
+  });
+
+  el('eBody').innerHTML = '<div class="cbox" style="width:100%;"><div class="ldr"></div><p>Saving &amp; sending email…</p></div>';
+
+  callAPI('submitResult', {
+    participantId: P.participant_id,
+    testId: parseInt(testId),
+    responses: responses,
+    timeTaken: tt,
+    organizationId: P.organization_id
+  }, function () {
+    buildResultScreen(responses, tt);
+  }, function (e) {
+    // Even on failure, show the result screen — sheet may have saved
+    buildResultScreen(responses, tt);
+  });
+}
+
+function buildResultScreen(responses, tt) {
+  var answered = 0, totalMarks = 0, sectionScores = {};
+  responses.forEach(function (resp) {
+    var isCorrect = resp.response === resp.correct_answer && resp.response !== '';
+    var marks = isCorrect ? resp.marks : (resp.response !== '' ? 0 : 0);
+    if (resp.response) { answered++; totalMarks += marks; }
+    var sec = resp.section || 'General';
+    if (!sectionScores[sec]) sectionScores[sec] = { marks: 0, answered: 0, total: 0 };
+    sectionScores[sec].total++;
+    if (resp.response) { sectionScores[sec].answered++; sectionScores[sec].marks += marks; }
+  });
+
+  var maxM = testInfo && testInfo.total_marks ? parseFloat(testInfo.total_marks) : 0;
+  var pct = maxM > 0 ? ((totalMarks / maxM) * 100).toFixed(1) + '%' : 'N/A';
+
+  function rb(v, l) { return '<div class="rbox"><div class="rv">' + esc(String(v)) + '</div><div class="rl">' + l + '</div></div>'; }
+  function rr(k, v) { return '<div class="rrow"><span class="rk">' + k + '</span><span class="rv2">' + (v || '—') + '</span></div>'; }
+
+  var secHtml = '';
+  var secKeys = Object.keys(sectionScores);
+  if (secKeys.length) {
+    secHtml = '<div class="sec-scores"><div class="sec-scores-title">📊 Section-wise Scores</div>';
+    secKeys.forEach(function (sec) {
+      var sc = sectionScores[sec];
+      secHtml += '<div class="sec-row">'
+        + '<span class="sec-name">' + esc(sec) + '</span>'
+        + '<span class="sec-val">' + sc.marks + ' pts · ' + sc.answered + '/' + sc.total + ' answered</span>'
+        + '</div>';
+    });
+    secHtml += '</div>';
+  }
+
+  var tname = testInfo ? testInfo.name : 'Test';
+  var now = new Date();
+  var ds = now.getDate() + ' ' + ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'][now.getMonth()] + ' ' + now.getFullYear();
+
+  el('eBody').innerHTML =
+    '<div class="rwrap"><div class="rcard">'
+    + '<div class="rico">🎉</div>'
+    + '<h2>Test Submitted!</h2>'
+    + '<p class="rsub">Well done, ' + esc(P.name || '') + '!<br>Results have been emailed to you.</p>'
+    + '<div class="rgrid">'
+    + rb(responses.length, 'Questions') + rb(answered, 'Answered')
+    + rb(responses.length - answered, 'Skipped') + rb(totalMarks + (maxM ? ' / ' + maxM : ''), 'Score')
+    + rb(pct, 'Percentage') + rb(tt, 'Time Taken')
+    + '</div>'
+    + secHtml
+    + '<div class="rst">Participant</div>'
+    + rr('Name', P.name) + rr('Email', P.email) + rr('Mobile', P.mobile_number) + rr('Institution', P.institution)
+    + '<div class="rst" style="margin-top:11px;">Test</div>'
+    + rr('Test', tname) + rr('Date', ds)
+    + '<div class="enotice">✔ Result emailed to <strong>' + esc(P.email || '') + '</strong></div>'
+    + '<button class="bdash" onclick="loadDashboard()">← Back to Dashboard</button>'
+    + '</div></div>';
+}
+
+// ── PAGE INIT ──────────────────────────────────────────────────
+document.addEventListener('DOMContentLoaded', function () {
+  setTimeout(function () {
+    loadOrganizations();
+  }, 500);
+});

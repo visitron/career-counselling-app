@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Counselling App</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="pgAuth" class="page active">
+  <div class="auth-left">
+    <div class="lb">
+      <div class="aico">🎓</div>
+      <h1>Counselling App</h1>
+      <p>Psychometric assessments helping students discover their strengths and career direction.</p>
+    </div>
+  </div>
+  <div class="auth-right">
+    <div class="acard">
+      <div class="tabs">
+        <div class="tab active" id="tabSignin" onclick="tab('signin')">Sign In</div>
+        <div class="tab" id="tabRegister" onclick="tab('register')">Register</div>
+      </div>
+      <!-- SIGN IN -->
+      <div class="tpanel active" id="panelSignin">
+        <div class="msg" id="lMsg"></div>
+        <div class="field">
+          <label>Organization <span class="req">*</span></label>
+          <div class="irow"><span class="ico">🏢</span>
+            <select id="lOrg" style="flex:1;padding:10px;border:none;background:transparent;font-family:inherit;font-size:inherit;color:inherit;cursor:pointer;">
+              <option value="">-- Select Organization --</option>
+            </select></div>
+        </div>
+        <div class="field">
+          <label>Email or Mobile <span class="req">*</span></label>
+          <div class="irow"><span class="ico">👤</span>
+            <input type="text" id="lUser" placeholder="email or 10-digit mobile" autocomplete="username"></div>
+        </div>
+        <div class="field">
+          <label>Password <span class="req">*</span></label>
+          <div class="irow"><span class="ico">🔒</span>
+            <input type="password" id="lPwd" placeholder="Enter your password" autocomplete="current-password">
+            <span class="eye" onclick="togglePwd('lPwd')">👁</span></div>
+        </div>
+        <div class="forgot-link-row">
+          <button onclick="toggleForgot()">Forgot Password?</button>
+        </div>
+        <div class="forgot-inline" id="forgotInline">
+          <div class="fi-title">🔑 Reset Password</div>
+          <div class="msg" id="fMsg"></div>
+          <div class="field" style="margin-bottom:10px;">
+            <label>Registered Email <span class="req">*</span></label>
+            <div class="irow"><span class="ico">✉️</span>
+              <input type="email" id="fEmail" placeholder="you@example.com"></div>
+          </div>
+          <button class="btn-p" id="fBtn" onclick="doForgot()" style="margin-top:0;">
+            <span id="fBtnTxt">Send Password</span><div class="spin" id="fSpin"></div>
+          </button>
+        </div>
+        <button class="btn-p" id="lBtn" onclick="doLogin()">
+          <span id="lBtnTxt">Sign In</span><div class="spin" id="lSpin"></div>
+        </button>
+        <p style="text-align:center;margin-top:11px;font-size:.8rem;color:var(--sub);">
+          New user? <button class="tlink" onclick="tab('register')">Create an account →</button>
+        </p>
+      </div>
+      <!-- REGISTER -->
+      <div class="tpanel" id="panelRegister">
+        <div class="msg" id="rMsg"></div>
+        <div class="sdiv">Organization</div>
+        <div class="fgrid">
+          <div class="field full"><label>Select Your Organization <span class="req">*</span></label>
+            <div class="irow"><span class="ico">🏢</span>
+              <select id="rOrg" style="flex:1;padding:10px;border:none;background:transparent;font-family:inherit;font-size:inherit;color:inherit;cursor:pointer;">
+                <option value="">-- Select Organization --</option>
+              </select></div></div>
+        </div>
+        <div class="sdiv">Personal Details</div>
+        <div class="fgrid">
+          <div class="field full"><label>Full Name <span class="req">*</span></label>
+            <div class="irow"><span class="ico">👤</span><input type="text" id="rName" placeholder="Full name"></div></div>
+          <div class="field"><label>Date of Birth</label>
+            <div class="irow"><span class="ico">📅</span><input type="date" id="rDob" style="padding-left:38px;"></div></div>
+          <div class="field"><label>Mobile Number <span class="req">*</span></label>
+            <div class="irow"><span class="ico">📱</span><input type="tel" id="rMobile" placeholder="10-digit mobile"></div></div>
+          <div class="field"><label>Email Address <span class="req">*</span></label>
+            <div class="irow"><span class="ico">✉️</span><input type="email" id="rEmail" placeholder="you@email.com"></div></div>
+          <div class="field"><label>Institution / School</label>
+            <div class="irow"><span class="ico">🏫</span><input type="text" id="rInst" placeholder="School or college"></div></div>
+          <div class="field"><label>Password <span class="req">*</span></label>
+            <div class="irow"><span class="ico">🔒</span><input type="password" id="rPwd" placeholder="Create password">
+              <span class="eye" onclick="togglePwd('rPwd')">👁</span></div></div>
+        </div>
+        <div class="sdiv">Father's Details</div>
+        <div class="fgrid">
+          <div class="field"><label>Father's Name</label>
+            <div class="irow"><span class="ico">👤</span><input type="text" id="rFN" placeholder="Father's name"></div></div>
+          <div class="field"><label>Father's Mobile</label>
+            <div class="irow"><span class="ico">📱</span><input type="tel" id="rFM" placeholder="Father's mobile"></div></div>
+          <div class="field full"><label>Father's Email</label>
+            <div class="irow"><span class="ico">✉️</span><input type="email" id="rFE" placeholder="Father's email"></div></div>
+        </div>
+        <div class="sdiv">Mother's Details</div>
+        <div class="fgrid">
+          <div class="field"><label>Mother's Name</label>
+            <div class="irow"><span class="ico">👤</span><input type="text" id="rMN" placeholder="Mother's name"></div></div>
+          <div class="field"><label>Mother's Mobile</label>
+            <div class="irow"><span class="ico">📱</span><input type="tel" id="rMM" placeholder="Mother's mobile"></div></div>
+          <div class="field full"><label>Mother's Email</label>
+            <div class="irow"><span class="ico">✉️</span><input type="email" id="rME" placeholder="Mother's email"></div></div>
+        </div>
+        <button class="btn-p" id="rBtn" onclick="doRegister()">
+          <span id="rBtnTxt">Create Account</span><div class="spin" id="rSpin"></div>
+        </button>
+        <p style="text-align:center;margin-top:11px;font-size:.8rem;color:var(--sub);">
+          Already registered? <button class="tlink" onclick="tab('signin')">Sign in →</button>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="pgDashboard" class="page">
+  <div class="topbar">
+    <div class="brand"><div class="logo">🎓</div><span class="brand-name">Counselling App</span></div>
+    <div class="topbar-right">
+      <div class="user-pill">👤<span id="dTopName"></span></div>
+      <button class="btn-ghost" onclick="doLogout()">Sign Out</button>
+    </div>
+  </div>
+  <div class="dmain">
+    <div class="pbanner">
+      <div class="avt">👤</div>
+      <div class="pi">
+        <h2 id="dName"></h2>
+        <div class="pmg">
+          <div class="pm">✉️ <span id="dEmail"></span></div>
+          <div class="pm">📱 <span id="dMobile"></span></div>
+          <div class="pm">🏫 <span id="dInst"></span></div>
+          <div class="pm">📅 DOB: <span id="dDob"></span></div>
+          <div class="pm">🔢 Logins: <span id="dLogins"></span></div>
+          <div class="pm">👤 Father: <span id="dFather"></span></div>
+          <div class="pm">👤 Mother: <span id="dMother"></span></div>
+          <div class="pm">📅 Since: <span id="dReg"></span></div>
+        </div>
+      </div>
+    </div>
+    <div class="shdr">
+      <h3>Choose a Test</h3>
+      <span class="cbadge" id="dTCount"></span>
+    </div>
+    <div id="dTests">
+      <div class="cbox" style="min-height:150px;"><div class="ldr"></div><p>Loading tests…</p></div>
+    </div>
+  </div>
+</div>
+
+<!-- EXAM -->
+<div id="pgExam" class="page">
+  <div class="ebar">
+    <div class="ebl">
+      <!-- FIX: opens custom modal instead of confirm() which is blocked in GAS iframe -->
+      <button class="bbk" onclick="confirmBack()">← Back</button>
+      <span class="etn" id="eTestName">Loading…</span>
+    </div>
+    <div class="tpill" id="eTimer">⏰ --:--</div>
+  </div>
+  <div class="pstrip"><div class="pfill" id="eProg" style="width:0%"></div></div>
+  <div id="eBody" style="flex:1;display:flex;overflow:hidden;">
+    <div class="cbox" style="width:100%;"><div class="ldr"></div><p>Loading questions…</p></div>
+  </div>
+</div>
+
+<!-- Submit Modal -->
+<div class="overlay" id="subOverlay">
+  <div class="mbox">
+    <h3>Submit Test?</h3>
+    <p>Once submitted you cannot change answers.<br>Section-wise scores will be emailed to you.</p>
+    <div class="mstats">
+      <div class="ms"><div class="mv" id="mAns">0</div><div class="ml">Answered</div></div>
+      <div class="ms"><div class="mv" id="mSkp">0</div><div class="ml">Skipped</div></div>
+      <div class="ms"><div class="mv" id="mTot">0</div><div class="ml">Total</div></div>
+    </div>
+    <div class="mbtns">
+      <button class="bn bprev" style="border:1.5px solid var(--border);" onclick="closeModal()">Review</button>
+      <button class="bn bsub" id="modalSubBtn" onclick="doSubmit()">Submit &amp; Email</button>
+    </div>
+  </div>
+</div>
+
+<!-- Back-confirm Modal (replaces browser confirm() which is blocked in GAS iframe) -->
+<div class="overlay" id="backOverlay">
+  <div class="mbox">
+    <h3>Leave Exam?</h3>
+    <p>Your current answers will be lost.<br>Are you sure you want to go back to the dashboard?</p>
+    <div class="mbtns">
+      <button class="bn bprev" style="border:1.5px solid var(--border);" onclick="closeBackModal()">Stay</button>
+      <button class="bn" style="background:linear-gradient(135deg,#c62828,#b71c1c);color:#fff;padding:9px 20px;" onclick="doGoBack()">Leave</button>
+    </div>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
