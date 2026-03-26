@@ -28,13 +28,6 @@
       <div class="tpanel active" id="panelSignin">
         <div class="msg" id="lMsg"></div>
         <div class="field">
-          <label>Organization <span class="req">*</span></label>
-          <div class="irow"><span class="ico">🏢</span>
-            <select id="lOrg" style="flex:1;padding:10px;border:none;background:transparent;font-family:inherit;font-size:inherit;color:inherit;cursor:pointer;">
-              <option value="">-- Select Organization --</option>
-            </select></div>
-        </div>
-        <div class="field">
           <label>Email or Mobile <span class="req">*</span></label>
           <div class="irow"><span class="ico">👤</span>
             <input type="text" id="lUser" placeholder="email or 10-digit mobile" autocomplete="username"></div>
@@ -44,6 +37,13 @@
           <div class="irow"><span class="ico">🔒</span>
             <input type="password" id="lPwd" placeholder="Enter your password" autocomplete="current-password">
             <span class="eye" onclick="togglePwd('lPwd')">👁</span></div>
+        </div>
+        <div class="field" style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;margin-bottom:12px;">
+          <label style="margin-bottom:0;">Admin Login</label>
+          <div class="toggle-switch">
+            <input type="checkbox" id="adminToggle" class="toggle-input">
+            <label for="adminToggle" class="toggle-label"></label>
+          </div>
         </div>
         <div class="forgot-link-row">
           <button onclick="toggleForgot()">Forgot Password?</button>
@@ -70,14 +70,6 @@
       <!-- REGISTER -->
       <div class="tpanel" id="panelRegister">
         <div class="msg" id="rMsg"></div>
-        <div class="sdiv">Organization</div>
-        <div class="fgrid">
-          <div class="field full"><label>Select Your Organization <span class="req">*</span></label>
-            <div class="irow"><span class="ico">🏢</span>
-              <select id="rOrg" style="flex:1;padding:10px;border:none;background:transparent;font-family:inherit;font-size:inherit;color:inherit;cursor:pointer;">
-                <option value="">-- Select Organization --</option>
-              </select></div></div>
-        </div>
         <div class="sdiv">Personal Details</div>
         <div class="fgrid">
           <div class="field full"><label>Full Name <span class="req">*</span></label>
@@ -200,6 +192,77 @@
     <div class="mbtns">
       <button class="bn bprev" style="border:1.5px solid var(--border);" onclick="closeBackModal()">Stay</button>
       <button class="bn" style="background:linear-gradient(135deg,#c62828,#b71c1c);color:#fff;padding:9px 20px;" onclick="doGoBack()">Leave</button>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN DASHBOARD -->
+<div id="pgAdminDashboard" class="page">
+  <div class="topbar">
+    <div class="brand"><div class="logo">🎓</div><span class="brand-name">Admin Dashboard</span></div>
+    <div class="topbar-right">
+      <div class="user-pill">👤<span id="aDTopName"></span></div>
+      <button class="btn-ghost" onclick="doLogout()">Sign Out</button>
+    </div>
+  </div>
+  
+  <div class="admain">
+    <div class="asection">
+      <div class="ashdr">
+        <h2>Manage Participants</h2>
+        <span class="cbadge" id="aPCount">0 participants</span>
+      </div>
+      
+      <div class="acontrols">
+        <div class="asearch">
+          <input type="text" id="aSearch" placeholder="Search by name, email..." onkeyup="filterParticipants()">
+        </div>
+        <div class="abtngroup">
+          <button class="btn-p" id="aSelectAllBtn" onclick="toggleSelectAll()" style="min-width:140px;">
+            Select All
+          </button>
+          <button class="btn-p" id="aAssignBtn" onclick="openTestAssignmentModal()" style="min-width:140px;opacity:0.55;cursor:not-allowed;" disabled>
+            Assign Test
+          </button>
+        </div>
+      </div>
+
+      <div class="atable-wrapper">
+        <table class="atable" id="participantTable">
+          <thead>
+            <tr>
+              <th style="width:40px;"><input type="checkbox" id="selectAllCheckbox" onchange="toggleSelectAll()"></th>
+              <th>Name</th>
+              <th>Email</th>
+              <th>Mobile</th>
+              <th>Institution</th>
+              <th>Logins</th>
+            </tr>
+          </thead>
+          <tbody id="participantTableBody">
+            <tr><td colspan="6" style="text-align:center;padding:40px;color:var(--sub);">Loading participants...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Test Assignment Modal -->
+<div class="overlay" id="testModalOverlay">
+  <div class="mbox" style="max-width:500px;">
+    <h3>Assign Tests to Participants</h3>
+    <div class="msg" id="testModalMsg"></div>
+    
+    <div class="test-list" id="testList">
+      <div class="ldr"></div>
+    </div>
+    
+    <p style="font-size:.8rem;color:var(--sub);margin:12px 0;">Select one or more tests to assign to <strong id="selectedCountLabel">0</strong> participant(s)</p>
+    
+    <div class="mbtns">
+      <button class="bn bprev" style="border:1.5px solid var(--border);" onclick="closeTestAssignmentModal()">Cancel</button>
+      <button class="bn" id="assignConfirmBtn" style="background:linear-gradient(135deg,var(--sky),var(--indigo));color:#fff;padding:9px 20px;opacity:0.55;cursor:not-allowed;" disabled onclick="confirmTestAssignment()">Assign Selected Tests</button>
     </div>
   </div>
 </div>

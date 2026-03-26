@@ -64,3 +64,6 @@ Thumbs.db
 
 # Backend script (GAS)
 backend.gs
+
+# Schema folder
+schema/

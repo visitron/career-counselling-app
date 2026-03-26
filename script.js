@@ -1,12 +1,18 @@
 // ── STATE ──────────────────────────────────────────────────────
 // IMPORTANT: Update this URL with your GAS deployment URL
 const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbweDi1Y7ObdnBjlxuHPP6lCYkjSNMfjtVF2wHzGaLbyvpqyev85mqUzDqM_fbrn-xXp/exec'; // Replace YOUR_DEPLOYMENT_ID
+// p:participant
 var P = null, testId = null;
+// Exam state: questions, current index, answers, skipped
 var Qs = [], idx = 0, ans = {}, skp = {};
+// Timer state 
 var timerSec = 0, timerInt = null, startMs = null, testInfo = null;
 var submitted = false;
+// Prefetch cache for test data to speed up exam start on dashboard
 var pfCache = {};
-
+// Admin state
+var allParticipants = [], selectedParticipants = [], allTests = [], selectedTestIds = [], searchOriginal = [];
+// Option marks helper (if needed for dynamic marking schemes)
 function optionMarks(i) { return Math.max(5 - i, 1); }
 
 // ── ROUTING ────────────────────────────────────────────────────
@@ -24,7 +30,6 @@ function tab(t) {
   });
   ['lMsg', 'rMsg', 'fMsg'].forEach(function (id) { var e = el(id); if (e) e.style.display = 'none'; });
   var fi = el('forgotInline'); if (fi) fi.classList.remove('open');
-  if (t === 'signin' || t === 'register') loadOrganizations();
 }
 
 // ── UTILS ──────────────────────────────────────────────────────
@@ -73,51 +78,26 @@ function stopTimer() {
 }
 
 // ── AUTH ────────────────────────────────────────────────────────
-function loadOrganizations() {
-  var orgSelects = [el('lOrg'), el('rOrg')];
-  orgSelects.forEach(function (orgSelect) {
-    if (!orgSelect) return;
-    orgSelect.innerHTML = '<option value="">-- Loading organizations... --</option>';
-  });
-  
-  callAPI('getOrganizations', {}, function (response) {
-    orgSelects.forEach(function (orgSelect) {
-      if (!orgSelect) return;
-      orgSelect.innerHTML = '<option value="">-- Select Organization --</option>';
-      if (response.success && response.organizations && response.organizations.length) {
-        response.organizations.forEach(function (org) {
-          var opt = document.createElement('option');
-          opt.value = org.organization_id;
-          // opt.textContent = org.name + (org.name !== org.organization_id ? ' (' + org.organization_id + ')' : '');
-          opt.textContent = org.name;
-          orgSelect.appendChild(opt);
-        });
-      } else {
-        orgSelect.innerHTML = '<option value="">No organizations available</option>';
-      }
-    });
-  }, function (err) {
-    orgSelects.forEach(function (orgSelect) {
-      if (!orgSelect) return;
-      orgSelect.innerHTML = '<option value="">Error loading organizations</option>';
-    });
-    console.error('Error loading organizations:', err);
-  });
-}
-
 function doLogin() {
-  var u = v('lUser'), pw = el('lPwd').value, orgId = el('lOrg').value;
+  var u = v('lUser'), pw = el('lPwd').value;
+  var isAdmin = el('adminToggle').checked;
+  var role = isAdmin ? 'admin' : 'participant';
   el('lMsg').style.display = 'none';
-  if (!orgId) { msg('lMsg', 'Please select an organization.', 'err'); return; }
   if (!u || !pw) { msg('lMsg', 'Please enter your email/mobile and password.', 'err'); return; }
   busy('lBtn', 'lSpin', 'lBtnTxt', true);
   callAPI('loginUser', {
     emailOrMobile: u,
     password: pw,
-    organizationId: orgId
+    organizationId: 'A7X2',
+    role: role
   }, function (r) {
     busy('lBtn', 'lSpin', 'lBtnTxt', false);
-    if (r.success) { P = r.participant; loadDashboard(); }
+    if (r.success) {
+      P = r.participant;
+      P.role = role;
+      if (P.role === 'admin') { loadAdminDashboard(); }
+      else { loadDashboard(); }
+    }
     else if (r.notFound) { msg('lMsg', '⚠ ' + r.message + ' <button class="tlink" onclick="tab(\'register\')" style="margin-left:4px;">Register →</button>', 'warn'); }
     else { msg('lMsg', r.message, 'err'); }
   }, function (e) {
@@ -126,9 +106,262 @@ function doLogin() {
   });
 }
 
+// ── ADMIN DASHBOARD ────────────────────────────────────────────
+function loadAdminDashboard() {
+  if (!P || P.role !== 'admin') { showPage('pgAuth'); return; }
+  stopTimer();
+  el('aDTopName').textContent = P.name || '';
+  el('aPCount').textContent = 'Loading...';
+  el('participantTableBody').innerHTML = '<tr><td colspan="6" style="text-align:center;padding:40px;color:var(--sub);"><div class="ldr"></div><p style="margin-top:10px;">Loading participants...</p></td></tr>';
+  selectedParticipants = [];
+  el('selectAllCheckbox').checked = false;
+  el('aSelectAllBtn').textContent = 'Select All';
+  el('aAssignBtn').disabled = true;
+  el('aAssignBtn').style.opacity = '0.55';
+  el('aAssignBtn').style.cursor = 'not-allowed';
+  showPage('pgAdminDashboard');
+  callAPI('getParticipants', { organizationId: 'A7X2' }, function (r) {
+    if (r.success) {
+      allParticipants = r.participants || [];
+      searchOriginal = JSON.parse(JSON.stringify(allParticipants));
+      renderParticipantsTable(allParticipants);
+      el('aPCount').textContent = allParticipants.length + ' participant' + (allParticipants.length !== 1 ? 's' : '');
+    } else {
+      el('participantTableBody').innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--err);padding:30px;">Failed to load participants: ' + esc(r.message) + '</td></tr>';
+    }
+  }, function (e) {
+    el('participantTableBody').innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--err);padding:30px;">Error: ' + esc(e.message) + '</td></tr>';
+  });
+}
+
+function renderParticipantsTable(participants) {
+  var h = '';
+  if (!participants.length) {
+    el('participantTableBody').innerHTML = '<tr><td colspan="6" style="text-align:center;color:var(--sub);padding:30px;">No participants found.</td></tr>';
+    return;
+  }
+  participants.forEach(function (p) {
+    var checked = selectedParticipants.indexOf(p.participant_id) >= 0 ? 'checked' : '';
+    h += '<tr' + (checked ? ' class="selected"' : '') + '>';
+    h += '<td><input type="checkbox" value="' + p.participant_id + '" onchange="toggleParticipantSelection(this)" ' + checked + '></td>';
+    h += '<td>' + esc(p.name || '—') + '</td>';
+    h += '<td>' + esc(p.email || '—') + '</td>';
+    h += '<td>' + esc(p.mobile_number || '—') + '</td>';
+    h += '<td>' + esc(p.institution || '—') + '</td>';
+    h += '<td style="text-align:center;">' + esc(String(p.number_of_logins || 0)) + '</td>';
+    h += '</tr>';
+  });
+  el('participantTableBody').innerHTML = h;
+}
+
+function toggleParticipantSelection(checkbox) {
+  var pId = parseInt(checkbox.value);
+  var isChecked = checkbox.checked;
+  var idx = selectedParticipants.indexOf(pId);
+  if (isChecked && idx < 0) { selectedParticipants.push(pId); }
+  else if (!isChecked && idx >= 0) { selectedParticipants.splice(idx, 1); }
+  updateSelectAllCheckbox();
+  updateAssignButtonState();
+  // Toggle row selection styling
+  var row = checkbox.closest('tr');
+  if (isChecked) { row.classList.add('selected'); }
+  else { row.classList.remove('selected'); }
+}
+
+function toggleSelectAll() {
+  var checkbox = el('selectAllCheckbox');
+  var isChecked = checkbox.checked;
+  selectedParticipants = [];
+  if (isChecked) {
+    allParticipants.forEach(function (p) { selectedParticipants.push(p.participant_id); });
+  }
+  document.querySelectorAll('#participantTableBody input[type="checkbox"]').forEach(function (cb) {
+    cb.checked = isChecked;
+    var row = cb.closest('tr');
+    if (isChecked) { row.classList.add('selected'); }
+    else { row.classList.remove('selected'); }
+  });
+  updateSelectAllCheckbox();
+  updateAssignButtonState();
+}
+
+function updateSelectAllCheckbox() {
+  var checkbox = el('selectAllCheckbox');
+  var btn = el('aSelectAllBtn');
+  var allChecked = selectedParticipants.length === allParticipants.length && allParticipants.length > 0;
+  checkbox.checked = allChecked;
+  btn.textContent = allChecked ? 'Deselect All' : 'Select All';
+}
+
+function updateAssignButtonState() {
+  var btn = el('aAssignBtn');
+  var hasSelection = selectedParticipants.length > 0;
+  btn.disabled = !hasSelection;
+  btn.style.opacity = hasSelection ? '1' : '0.55';
+  btn.style.cursor = hasSelection ? 'pointer' : 'not-allowed';
+}
+
+function filterParticipants() {
+  var query = v('aSearch').toLowerCase();
+  if (!query) {
+    allParticipants = JSON.parse(JSON.stringify(searchOriginal));
+  } else {
+    allParticipants = searchOriginal.filter(function (p) {
+      return (p.name || '').toLowerCase().indexOf(query) >= 0 ||
+             (p.email || '').toLowerCase().indexOf(query) >= 0 ||
+             (p.mobile_number || '').indexOf(query) >= 0;
+    });
+  }
+  selectedParticipants = [];
+  el('selectAllCheckbox').checked = false;
+  updateAssignButtonState();
+  renderParticipantsTable(allParticipants);
+}
+
+function openTestAssignmentModal() {
+  console.log('openTestAssignmentModal called. selectedParticipants:', selectedParticipants);
+  if (selectedParticipants.length === 0) { 
+    console.log('No participants selected, returning');
+    return; 
+  }
+  console.log('Opening test modal with', selectedParticipants.length, 'participants');
+  el('testModalOverlay').classList.add('on');
+  el('selectedCountLabel').textContent = String(selectedParticipants.length);
+  el('testList').innerHTML = '<div class="ldr"></div>';
+  el('assignConfirmBtn').disabled = true;
+  el('assignConfirmBtn').style.opacity = '0.55';
+  selectedTestIds = [];
+  var orgId = P && P.organization_id ? P.organization_id : 'A7X2';
+  console.log('Calling getTests with organizationId:', orgId);
+  callAPI('getTests', { organizationId: orgId }, function (r) {
+    console.log('getTests response:', r);
+    if (r.success) {
+      allTests = r.tests || [];
+      console.log('Loaded', allTests.length, 'tests');
+      renderTestSelectionList(allTests);
+    } else {
+      console.log('getTests failed:', r.message);
+      el('testList').innerHTML = '<p style="color:var(--err);text-align:center;padding:20px;">Failed to load tests: ' + esc(r.message) + '</p>';
+    }
+  }, function (e) {
+    console.log('getTests error:', e.message);
+    el('testList').innerHTML = '<p style="color:var(--err);text-align:center;padding:20px;">Error: ' + esc(e.message) + '</p>';
+  });
+}
+
+function renderTestSelectionList(tests) {
+  if (!tests.length) {
+    el('testList').innerHTML = '<p style="text-align:center;color:var(--sub);padding:20px;">No tests available.</p>';
+    return;
+  }
+  var h = '';
+  tests.forEach(function (t) {
+    var testId = parseInt(t.test_id, 10);
+    h += '<div class="test-item" id="test_' + testId + '" style="cursor:pointer;">';
+    h += '<div style="display:flex;align-items:center;gap:8px;">';
+    h += '<input type="checkbox" name="testSelection" value="' + testId + '" onchange="toggleTest(' + testId + ')" style="cursor:pointer;">';
+    h += '<span class="test-item-name" style="cursor:pointer;flex:1;">' + esc(t.name) + '</span>';
+    h += '</div>';
+    h += '<div class="test-item-desc">' + esc(t.description || 'No description') + '</div>';
+    h += '<div class="test-item-meta"><span>⏱ ' + esc(String(t.duration_in_minutes)) + ' min</span><span>📝 ' + esc(String(t.total_marks)) + ' marks</span></div>';
+    h += '</div>';
+  });
+  el('testList').innerHTML = h;
+}
+
+function toggleTest(testId) {
+  testId = parseInt(testId, 10);  // Ensure testId is a number
+  console.log('toggleTest called with testId:', testId, 'selectedTestIds before:', selectedTestIds);
+  
+  var idx = selectedTestIds.indexOf(testId);
+  var testElement = el('test_' + testId);
+  if (!testElement) {
+    console.error('Test element not found for testId:', testId);
+    return;
+  }
+  
+  var checkbox = testElement.querySelector('input[name="testSelection"]');
+  
+  if (idx >= 0) {
+    selectedTestIds.splice(idx, 1);
+    if (checkbox) checkbox.checked = false;
+    testElement.classList.remove('selected');
+  } else {
+    selectedTestIds.push(testId);
+    if (checkbox) checkbox.checked = true;
+    testElement.classList.add('selected');
+  }
+  
+  console.log('selectedTestIds after:', selectedTestIds);
+  updateTestAssignButtonState();
+}
+
+function updateTestAssignButtonState() {
+  var hasSelection = selectedTestIds.length > 0;
+  el('assignConfirmBtn').disabled = !hasSelection;
+  el('assignConfirmBtn').style.opacity = hasSelection ? '1' : '0.55';
+  el('assignConfirmBtn').style.cursor = hasSelection ? 'pointer' : 'not-allowed';
+}
+
+function confirmTestAssignment() {
+  console.log('confirmTestAssignment called. selectedTestIds:', selectedTestIds, 'selectedParticipants:', selectedParticipants);
+  if (selectedTestIds.length === 0 || selectedParticipants.length === 0) {
+    console.log('Validation failed. Tests selected:', selectedTestIds.length > 0, 'Participants selected:', selectedParticipants.length > 0);
+    return;
+  }
+  el('assignConfirmBtn').disabled = true;
+  el('assignConfirmBtn').style.opacity = '0.55';
+  var orgId = P && P.organization_id ? P.organization_id : 'A7X2';
+  var adminId = (P && P.admin_id) ? P.admin_id : (P && P.participant_id ? P.participant_id : null);
+  console.log('Assigning tests. testIds:', selectedTestIds, 'participantIds:', selectedParticipants, 'orgId:', orgId, 'adminId:', adminId);
+  callAPI('assignTest', {
+    organizationId: orgId,
+    testIds: selectedTestIds,
+    participantIds: selectedParticipants,
+    adminId: adminId
+  }, function (r) {
+    el('assignConfirmBtn').disabled = false;
+    el('assignConfirmBtn').style.opacity = '1';
+    console.log('assignTest response:', r);
+    if (r.success) {
+      msg('testModalMsg', '✓ ' + r.message, 'ok');
+      setTimeout(function () { closeTestAssignmentModal(); }, 1500);
+    } else {
+      msg('testModalMsg', '⚠ ' + r.message, 'err');
+    }
+  }, function (e) {
+    el('assignConfirmBtn').disabled = false;
+    el('assignConfirmBtn').style.opacity = '1';
+    console.log('assignTest error:', e.message);
+    msg('testModalMsg', 'Error: ' + esc(e.message), 'err');
+  });
+}
+
+function closeTestAssignmentModal() {
+  el('testModalOverlay').classList.remove('on');
+  el('testModalMsg').style.display = 'none';
+  selectedTestIds = [];
+  loadAdminDashboard();
+}
+
+function doLogout() {
+  P = null;
+  selectedParticipants = [];
+  allParticipants = [];
+  allTests = [];
+  selectedTestId = null;
+  el('adminToggle').checked = false;
+  el('lUser').value = '';
+  el('lPwd').value = '';
+  el('lMsg').style.display = 'none';
+  el('rMsg').style.display = 'none';
+  showPage('pgAuth');
+  tab('signin');
+}
+
 function doRegister() {
   el('rMsg').style.display = 'none';
-  var orgId = el('rOrg').value;
+  var orgId = 'A7X2';
   if (!orgId) { msg('rMsg', 'Please select an organization.', 'err'); return; }
   var data = {
     organization_id: orgId,
@@ -190,7 +423,7 @@ function loadDashboard() {
   el('dReg').textContent = P.registration_date || '—';
   el('dTests').innerHTML = '<div class="cbox" style="min-height:140px;"><div class="ldr"></div><p>Loading tests…</p></div>';
   showPage('pgDashboard');
-  callAPI('getTests', { organizationId: P.organization_id, participantId: P.participant_id }, function (r) {
+  callAPI('getTests', { organizationId: 'A7X2', participantId: P.participant_id }, function (r) {
     if (r.success) renderTests(r.tests || []);
     else el('dTests').innerHTML = '<p style="color:var(--err);padding:30px;text-align:center;">Failed: ' + esc(r.message) + '</p>';
   }, function (e) {
@@ -214,6 +447,7 @@ function renderTests(tests) {
   var h = '<div class="tgrid">';
   tests.forEach(function (t) {
     var ready = pfCache[t.test_id] && pfCache[t.test_id].status === 'ready';
+    var isPaid = t.amount_paid === 1;
     h += '<div class="tcard">'
       + '<div class="ttop"><span class="tbadge">Test #' + t.test_id + '</span>'
       + (t.department_name ? '<span class="dtag">' + esc(t.department_name) + '</span>' : '') + '</div>'
@@ -223,20 +457,30 @@ function renderTests(tests) {
       + '<div class="mb"><div class="ml">⏱ Duration</div><div class="mv">' + esc(String(t.duration_in_minutes)) + ' min</div></div>'
       + '<div class="mb"><div class="ml">📝 Max Marks</div><div class="mv">' + esc(String(t.total_marks)) + '</div></div>'
       + '</div>'
-      + '<div class="tfoot">'
-      + '<span class="pf-badge' + (ready ? ' ready' : '') + '" id="pf_' + t.test_id + '">' + (ready ? '✓ Ready' : '⏳ Preparing…') + '</span>'
-      + '<button class="bstart" onclick="startTest(' + t.test_id + ')">Take Test →</button>'
-      + '</div></div>';
+      + '<div class="tfoot">';
+    
+    if (!isPaid) {
+      h += '<div style="background-color:#fff3cd;border:1px solid #ffc107;border-radius:4px;padding:12px;margin-bottom:10px;font-size:0.85rem;color:#333;">'
+        + '💳 <strong>Payment Pending</strong><br>'
+        + 'Please pay the required amount and inform the admin to mark you as paid.'
+        + '</div>'
+        + '<button class="bstart" disabled style="opacity:0.6;cursor:not-allowed;">Test Locked (Payment Required)</button>';
+    } else {
+      h += '<span class="pf-badge' + (ready ? ' ready' : '') + '" id="pf_' + t.test_id + '">' + (ready ? '✓ Ready' : '⏳ Preparing…') + '</span>'
+        + '<button class="bstart" onclick="startTest(' + t.test_id + ')">Take Test →</button>';
+    }
+    
+    h += '</div></div>';
   });
   el('dTests').innerHTML = h + '</div>';
   tests.forEach(function (t) {
-    if (!pfCache[t.test_id] || pfCache[t.test_id].status === 'error') prefetch(t.test_id);
+    if (t.amount_paid === 1 && (!pfCache[t.test_id] || pfCache[t.test_id].status === 'error')) prefetch(t.test_id);
   });
 }
 
 function prefetch(tid) {
   pfCache[tid] = { status: 'loading', data: null };
-  callAPI('getExamData', { testId: tid, organizationId: P.organization_id }, function (data) {
+  callAPI('getExamData', { testId: tid, organizationId: 'A7X2', participantId: P.participant_id }, function (data) {
     if (data.success) {
       pfCache[tid] = { status: 'ready', data: data };
       var b = el('pf_' + tid);
@@ -279,7 +523,7 @@ function startTest(tid) {
   var stInt = setInterval(function () {
     si = (si + 1) % steps.length; var e = el('lstep'); if (e) e.textContent = steps[si];
   }, 1800);
-  callAPI('getExamData', { testId: tid, organizationId: P.organization_id }, function (data) {
+  callAPI('getExamData', { testId: tid, organizationId: 'A7X2', participantId: P.participant_id }, function (data) {
     clearInterval(stInt);
     if (data.success) {
       pfCache[tid] = { status: 'ready', data: data };
@@ -478,7 +722,7 @@ function doSubmit() {
     testId: parseInt(testId),
     responses: responses,
     timeTaken: tt,
-    organizationId: P.organization_id
+    organizationId: 'A7X2'
   }, function () {
     buildResultScreen(responses, tt);
   }, function (e) {
@@ -545,7 +789,4 @@ function buildResultScreen(responses, tt) {
 
 // ── PAGE INIT ──────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function () {
-  setTimeout(function () {
-    loadOrganizations();
-  }, 500);
 });
