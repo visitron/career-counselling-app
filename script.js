@@ -698,7 +698,7 @@ function autoSubmit() { closeModal(); doSubmit(); }
 function doSubmit() {
   if (submitted) return;
   submitted = true;
-  var msb = el('modalSubBtn'); if (msb) msb.disabled = true;
+  var msb = el('modalSubBtn'); if (msb) msb.textContent = '⏳ Submitting…';
   stopTimer();
   closeModal();
 
@@ -724,9 +724,11 @@ function doSubmit() {
     timeTaken: tt,
     organizationId: 'A7X2'
   }, function () {
+    submitted = false;
     buildResultScreen(responses, tt);
   }, function (e) {
     // Even on failure, show the result screen — sheet may have saved
+    submitted = false;
     buildResultScreen(responses, tt);
   });
 }
