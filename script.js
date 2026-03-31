@@ -119,6 +119,9 @@ function loadAdminDashboard() {
   el('aAssignBtn').disabled = true;
   el('aAssignBtn').style.opacity = '0.55';
   el('aAssignBtn').style.cursor = 'not-allowed';
+  // Remove support button exam mode
+  const supportBtn = el('supportBtn');
+  if (supportBtn) supportBtn.classList.remove('exam-mode');
   showPage('pgAdminDashboard');
   callAPI('getParticipants', { organizationId: 'A7X2' }, function (r) {
     if (r.success) {
@@ -416,12 +419,22 @@ function loadDashboard() {
   el('dEmail').textContent = P.email || '—';
   el('dMobile').textContent = P.mobile_number || '—';
   el('dInst').textContent = P.institution || '—';
-  el('dDob').textContent = P.date_of_birth || '—';
+  el('dDob').textContent = new Date(P.date_of_birth).toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' }).replace(/ /g, '-') || '—';
   el('dLogins').textContent = P.number_of_logins || '1';
   el('dFather').textContent = P.father_name || (P.father_email || '—');
   el('dMother').textContent = P.mother_name || (P.mother_email || '—');
-  el('dReg').textContent = P.registration_date || '—';
+  el('dReg').textContent = new Date(P.registration_date).toLocaleString('en-GB', {
+  day: '2-digit',
+  month: 'short',
+  year: 'numeric',
+  hour: 'numeric',
+  minute: '2-digit',
+  hour12: true
+}).replace(',', '').replace(/ /g, (m, i) => i < 11 ? '-' : ' ') || '—';
   el('dTests').innerHTML = '<div class="cbox" style="min-height:140px;"><div class="ldr"></div><p>Loading tests…</p></div>';
+  // Remove support button exam mode
+  const supportBtn = el('supportBtn');
+  if (supportBtn) supportBtn.classList.remove('exam-mode');
   showPage('pgDashboard');
   callAPI('getTests', { organizationId: 'A7X2', participantId: P.participant_id }, function (r) {
     if (r.success) renderTests(r.tests || []);
@@ -514,6 +527,9 @@ function startTest(tid) {
   el('eTimer').className = 'tpill';
   el('eBody').innerHTML = '<div class="cbox" style="width:100%;"><div class="ldr"></div><p>Loading questions…</p><p class="lstep" id="lstep">Connecting…</p></div>';
   showPage('pgExam');
+  // Move support button for exam mode
+  const supportBtn = el('supportBtn');
+  if (supportBtn) supportBtn.classList.add('exam-mode');
 
   if (pfCache[tid] && pfCache[tid].status === 'ready') {
     onExamLoaded(pfCache[tid].data);
@@ -787,6 +803,178 @@ function buildResultScreen(responses, tt) {
     + '<div class="enotice">✔ Result emailed to <strong>' + esc(P.email || '') + '</strong></div>'
     + '<button class="bdash" onclick="loadDashboard()">← Back to Dashboard</button>'
     + '</div></div>';
+}
+
+
+// ── SUPPORT MODAL ──────────────────────────────────────────────
+/**
+ * Open Support Modal
+ */
+function openSupportModal() {
+  const supportOverlay = el('supportOverlay');
+  if (!supportOverlay) return;
+  
+  supportOverlay.classList.add('on');
+  
+  // Load FAQs and org support info
+  callAPI('getFAQs', {}, function(faqData) {
+    renderFAQList(faqData.faqs || []);
+  }, function(err) {
+    el('faqList').innerHTML = '<p style="color:var(--err);text-align:center;">Error loading FAQs. Please try again.</p>';
+  });
+  
+  // Get organization ID from current participant/admin
+  const orgId = 'A7X2'; // Using the same organization ID as the rest of the app
+  callAPI('getOrgSupportInfo', { organizationId: orgId }, function(supportData) {
+    if (supportData.success) {
+      const contactNumber = supportData.contact_number;
+      const orgName = supportData.organization_name;
+      
+      // Update organization name
+      const orgNameEl = el('orgNameDisplay');
+      if (orgNameEl) orgNameEl.textContent = orgName || 'Organization';
+      
+      // Update contact number display
+      const contactNumberEl = el('contactNumberDisplay');
+      if (contactNumberEl) contactNumberEl.textContent = contactNumber || 'N/A';
+      
+      // Update WhatsApp link
+      const whatsappLink = el('whatsappLink');
+      if (whatsappLink) {
+        whatsappLink.href = generateWhatsAppLink(contactNumber);
+        whatsappLink.textContent = '💬 Start Chat on WhatsApp';
+      }
+    }
+  }, function(err) {
+    el('orgNameDisplay').textContent = 'Contact Support';
+  });
+}
+
+/**
+ * Close Support Modal
+ */
+function closeSupportModal() {
+  const supportOverlay = el('supportOverlay');
+  if (supportOverlay) supportOverlay.classList.remove('on');
+}
+
+/**
+ * Switch between FAQ and Contact tabs
+ * @param {string} tabName - 'faq' or 'contact'
+ */
+function switchSupportTab(tabName) {
+  // Update tab buttons
+  const tabBtns = document.querySelectorAll('.support-tab-btn');
+  tabBtns.forEach(btn => btn.classList.remove('active'));
+  
+  if (tabName === 'faq') {
+    if (tabBtns[0]) tabBtns[0].classList.add('active');
+  } else if (tabName === 'contact') {
+    if (tabBtns[1]) tabBtns[1].classList.add('active');
+  }
+  
+  // Update tab content
+  const tabContents = document.querySelectorAll('.support-tab-content');
+  tabContents.forEach(content => content.classList.remove('active'));
+  
+  const faqTab = el('faqTabContent');
+  const contactTab = el('contactTabContent');
+  
+  if (tabName === 'faq' && faqTab) {
+    faqTab.classList.add('active');
+  } else if (tabName === 'contact' && contactTab) {
+    contactTab.classList.add('active');
+  }
+}
+
+/**
+ * Render FAQ list
+ * @param {array} faqs - Array of {question, answer} objects
+ */
+function renderFAQList(faqs) {
+  const faqList = el('faqList');
+  if (!faqList) return;
+  
+  if (!faqs || faqs.length === 0) {
+    faqList.innerHTML = '<p style="color:var(--sub);text-align:center;">No FAQs available.</p>';
+    return;
+  }
+  
+  let html = '';
+  faqs.forEach(function(faq, idx) {
+    const faqId = 'faq-' + idx;
+    html += '<div class="faq-item" id="' + faqId + '" onclick="toggleFAQItem(' + idx + ')">';
+    html += '<div class="faq-question">';
+    html += '<span class="faq-toggle">+</span>';
+    html += '<span>' + esc(faq.question) + '</span>';
+    html += '</div>';
+    html += '<div class="faq-answer">' + esc(faq.answer) + '</div>';
+    html += '</div>';
+  });
+  
+  faqList.innerHTML = html;
+}
+
+/**
+ * Toggle FAQ answer visibility
+ * @param {number} idx - FAQ index
+ */
+function toggleFAQItem(idx) {
+  const faqItem = el('faq-' + idx);
+  if (faqItem) {
+    faqItem.classList.toggle('expanded');
+  }
+}
+
+/**
+ * Generate WhatsApp link
+ * @param {string} phoneNumber - Phone number without country code or formatting
+ * @return {string} WhatsApp Web link
+ */
+function generateWhatsAppLink(phoneNumber) {
+  if (!phoneNumber) return '#';
+  
+  // Clean phone number: remove all non-digit characters
+  const cleanNumber = String(phoneNumber).replace(/\D/g, '');
+  
+  // Assume Indian number format (country code 91)
+  // If number is 10 digits, prepend 91; if 12 digits, assume already has country code
+  let formattedNumber = cleanNumber;
+  if (cleanNumber.length === 10) {
+    formattedNumber = '91' + cleanNumber;
+  }
+  
+  return 'https://wa.me/' + formattedNumber;
+}
+
+/**
+ * Copy WhatsApp number to clipboard
+ */
+function copyWhatsappNumber() {
+  const contactNumberEl = el('contactNumberDisplay');
+  if (!contactNumberEl) return;
+  
+  const phoneNumber = contactNumberEl.textContent.trim();
+  if (!phoneNumber || phoneNumber === 'N/A') {
+    alert('Phone number not available');
+    return;
+  }
+  
+  navigator.clipboard.writeText(phoneNumber).then(function() {
+    // Show temporary feedback
+    const btn = event.target;
+    const originalText = btn.textContent;
+    btn.textContent = '✓ Copied!';
+    btn.style.opacity = '0.7';
+    
+    setTimeout(function() {
+      btn.textContent = originalText;
+      btn.style.opacity = '1';
+    }, 2000);
+  }).catch(function(err) {
+    console.error('Failed to copy:', err);
+    alert('Failed to copy number');
+  });
 }
 
 // ── PAGE INIT ──────────────────────────────────────────────────

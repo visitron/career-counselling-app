@@ -81,5 +81,50 @@
 </div>
 
 <script src="script.js"></script>
+
+<!-- SUPPORT BUTTON -->
+<button class="support-btn" id="supportBtn" onclick="openSupportModal()">?</button>
+
+<!-- SUPPORT MODAL -->
+<div class="overlay" id="supportOverlay">
+  <div class="mbox support-modal">
+    <div class="support-header">
+      <h3>Support Center</h3>
+      <button class="close-btn" onclick="closeSupportModal()">✕</button>
+    </div>
+    
+    <div class="support-tabs">
+      <button class="support-tab-btn active" onclick="switchSupportTab('faq')">FAQ</button>
+      <button class="support-tab-btn" onclick="switchSupportTab('contact')">Contact Us</button>
+    </div>
+    
+    <div class="support-content">
+      <!-- FAQ TAB -->
+      <div class="support-tab-content active" id="faqTabContent">
+        <div class="faq-list" id="faqList">
+          <div class="ldr"></div>
+        </div>
+      </div>
+      
+      <!-- CONTACT TAB -->
+      <div class="support-tab-content" id="contactTabContent">
+        <div class="contact-section">
+          <h4>WhatsApp Support</h4>
+          <p class="org-name" id="orgNameDisplay">Loading...</p>
+          <div class="whatsapp-options">
+            <a id="whatsappLink" target="_blank" class="btn-p" style="text-decoration:none;text-align:center;display:block;margin-bottom:12px;">
+              💬 Start Chat on WhatsApp
+            </a>
+            <button class="btn-p" style="background:var(--light);color:var(--text);border:1.5px solid var(--border);" onclick="copyWhatsappNumber()">
+              📋 Copy Phone Number
+            </button>
+            <p class="contact-number" id="contactNumberDisplay" style="text-align:center;margin-top:12px;font-weight:500;"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 </body>
 </html>
