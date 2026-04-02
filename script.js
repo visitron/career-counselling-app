@@ -615,6 +615,28 @@ function buildExam() {
     + '<button class="bn bnext" id="bNext" onclick="nextQ()">Next →</button>'
     + '</div><button class="bn bsub" onclick="showModal()">Submit Test</button></div></div>';
   buildPalette();
+  buildMobilePalette();
+}
+
+function buildMobilePalette() {
+  var grp = {}, ord = [];
+  Qs.forEach(function (q, i) {
+    if (!grp[q.section]) { grp[q.section] = []; ord.push(q.section); }
+    grp[q.section].push({ q: q, i: i });
+  });
+  var h = '';
+  ord.forEach(function (sec) {
+    h += '<div class="sg"><div class="sgl">' + esc(sec) + '</div><div class="qgrid">';
+    grp[sec].forEach(function (item) {
+      var c = 'qb';
+      if (ans[item.q.question_id] !== undefined) c += ' ans';
+      else if (skp[item.q.question_id]) c += ' skp';
+      if (item.i === idx) c += ' cur';
+      h += '<div class="' + c + '" onclick="goQ(' + item.i + ');closeMobilePalette()">' + (item.i + 1) + '</div>';
+    });
+    h += '</div></div>';
+  });
+  var mpal = el('mobilePaletteContent'); if (mpal) mpal.innerHTML = h;
 }
 
 function buildPalette() {
@@ -659,6 +681,7 @@ function renderQ() {
     + '<div class="qtxt">' + esc(q.question) + '</div>'
     + '<div class="opts">' + oh + '</div>';
   buildPalette();
+  buildMobilePalette();
 }
 
 function selOpt(div, val, qid, optIdx) {
@@ -685,6 +708,31 @@ function skipQ() { var q = Qs[idx]; skp[q.question_id] = true; delete ans[q.ques
 function prevQ() { if (idx > 0) { idx--; renderQ(); } }
 function nextQ() { if (idx < Qs.length - 1) { idx++; renderQ(); } else showModal(); }
 function goQ(i) { idx = i; renderQ(); }
+
+// ── MOBILE PALETTE ─────────────────────────────────────────────
+function toggleMobilePalette() {
+  var sheet = el('mobilePaletteSheet');
+  var backdrop = el('mobilePaletteBackdrop');
+  if (sheet && backdrop) {
+    sheet.classList.toggle('open');
+    backdrop.classList.toggle('open');
+    if (sheet.classList.contains('open')) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'auto';
+    }
+  }
+}
+
+function closeMobilePalette() {
+  var sheet = el('mobilePaletteSheet');
+  var backdrop = el('mobilePaletteBackdrop');
+  if (sheet && backdrop) {
+    sheet.classList.remove('open');
+    backdrop.classList.remove('open');
+    document.body.style.overflow = 'auto';
+  }
+}
 
 // ── BACK CONFIRM — custom modal, NO confirm() ─────────────────
 // confirm() is silently blocked/returns false in many browsers
@@ -979,4 +1027,11 @@ function copyWhatsappNumber() {
 
 // ── PAGE INIT ──────────────────────────────────────────────────
 document.addEventListener('DOMContentLoaded', function () {
+});
+
+// ── REFRESH CONFIRMATION ───────────────────────────────────────
+window.addEventListener('beforeunload', function (e) {
+  e.preventDefault();
+  e.returnValue = 'Are you sure you want to refresh? Your progress may be lost.';
+  return e.returnValue;
 });

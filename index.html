@@ -159,9 +159,16 @@
       <button class="bbk" onclick="confirmBack()">← Back</button>
       <span class="etn" id="eTestName">Loading…</span>
     </div>
+    <button class="mobile-palette-trigger" onclick="toggleMobilePalette()" title="View all questions">≡</button>
     <div class="tpill" id="eTimer">⏰ --:--</div>
   </div>
   <div class="pstrip"><div class="pfill" id="eProg" style="width:0%"></div></div>
+  <!-- Mobile Palette Bottom Sheet -->
+  <div class="mobile-palette-backdrop" id="mobilePaletteBackdrop" onclick="closeMobilePalette()"></div>
+  <div class="mobile-palette-sheet" id="mobilePaletteSheet">
+    <div class="mobile-palette-header">Questions</div>
+    <div class="mobile-palette-content" id="mobilePaletteContent"></div>
+  </div>
   <div id="eBody" style="flex:1;display:flex;overflow:hidden;">
     <div class="cbox" style="width:100%;"><div class="ldr"></div><p>Loading questions…</p></div>
   </div>
@@ -270,7 +277,7 @@
 <script src="script.js"></script>
 
 <!-- SUPPORT BUTTON -->
-<button class="support-btn" id="supportBtn" onclick="openSupportModal()">?</button>
+<button class="support-btn" id="supportBtn" onclick="openSupportModal()" title="Get help and support">?</button>
 
 <!-- SUPPORT MODAL -->
 <div class="overlay" id="supportOverlay">
