@@ -1,0 +1,230 @@
+// ── STATE ──────────────────────────────────────────────────────
+const ORGANIZATION_ID = '{{guid}}';
+const GAS_API_URL = 'https://script.google.com/macros/s/AKfycbweDi1Y7ObdnBjlxuHPP6lCYkjSNMfjtVF2wHzGaLbyvpqyev85mqUzDqM_fbrn-xXp/exec';
+var P = null, testId = null;
+var Qs = [], idx = 0, ans = {}, skp = {};
+var timerSec = 0, timerInt = null, startMs = null, testInfo = null;
+var submitted = false;
+var pfCache = {};
+var allParticipants = [], selectedParticipants = [], allTests = [], selectedTestIds = [], searchOriginal = [];
+
+function optionMarks(i) { return Math.max(5 - i, 1); }
+
+// ── ROUTING ────────────────────────────────────────────────────
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(function (p) { p.classList.remove('active'); });
+  document.getElementById(id).classList.add('active');
+  window.scrollTo(0, 0);
+}
+
+function tab(t) {
+  ['signin', 'register'].forEach(function (x) {
+    var X = x.charAt(0).toUpperCase() + x.slice(1);
+    document.getElementById('tab' + X).classList.toggle('active', x === t);
+    document.getElementById('panel' + X).classList.toggle('active', x === t);
+  });
+  ['lMsg', 'rMsg', 'fMsg'].forEach(function (id) { var e = el(id); if (e) e.style.display = 'none'; });
+  var fi = el('forgotInline'); if (fi) fi.classList.remove('open');
+}
+
+// ── UTILS ──────────────────────────────────────────────────────
+function el(id) { return document.getElementById(id); }
+function v(id) { return el(id).value.trim(); }
+function esc(s) { return String(s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;'); }
+function escQ(s) { return String(s || '').replace(/\\/g, '\\\\').replace(/'/g, "\\'"); }
+function togglePwd(id) { var f = el(id); f.type = f.type === 'password' ? 'text' : 'password'; }
+function busy(b, s, t, on) { el(b).disabled = on; el(s).style.display = on ? 'inline-block' : 'none'; if (t) el(t).style.display = on ? 'none' : 'inline'; }
+function msg(id, m, type) { var e = el(id); e.innerHTML = m; e.className = 'msg ' + type; e.style.display = 'block'; }
+
+// ── API HELPER ──────────────────────────────────────────────────────
+function callAPI(action, params, callback) {
+  const payload = Object.assign({ action: action }, params);
+  fetch(GAS_API_URL, {
+    method: 'POST',
+    body: JSON.stringify(payload)
+  })
+  .then(r => r.json())
+  .then(data => callback(data))
+  .catch(err => { console.error('API Error:', err); callback({ success: false, message: 'Network error' }); });
+}
+
+// ── AUTH ──────────────────────────────────────────────────────
+function doLogin() {
+  const u = v('lUser'), p = v('lPwd'), admin = el('adminToggle').checked;
+  if (!u || !p) { msg('lMsg', 'Enter email/mobile and password', 'err'); return; }
+  busy('lBtn', 'lSpin', 'lBtnTxt', true);
+  callAPI('loginUser', { emailOrMobile: u, password: p, organizationId: ORGANIZATION_ID, role: admin ? 'admin' : 'participant' }, function(data) {
+    busy('lBtn', 'lSpin', 'lBtnTxt', false);
+    if (data.success) { P = data.participant; showPage('pgDashboard'); loadDashboard(); }
+    else { msg('lMsg', data.message || 'Login failed', 'err'); }
+  });
+}
+
+function doRegister() {
+  const name = v('rName'), email = v('rEmail'), mobile = v('rMobile'), pwd = v('rPwd');
+  if (!name || !email || !mobile || !pwd) { msg('rMsg', 'Fill all required fields', 'err'); return; }
+  busy('rBtn', 'rSpin', 'rBtnTxt', true);
+  callAPI('registerParticipant', { name: name, email: email, mobile_number: mobile, password: pwd, organization_id: ORGANIZATION_ID }, function(data) {
+    busy('rBtn', 'rSpin', 'rBtnTxt', false);
+    if (data.success) { msg('rMsg', 'Account created! Sign in now.', 'ok'); setTimeout(() => tab('signin'), 1500); }
+    else { msg('rMsg', data.message || 'Registration failed', 'err'); }
+  });
+}
+
+function doForgot() {
+  const email = v('fEmail');
+  if (!email) { msg('fMsg', 'Enter your email', 'err'); return; }
+  busy('fBtn', 'fSpin', 'fBtnTxt', true);
+  callAPI('forgotPassword', { email: email }, function(data) {
+    busy('fBtn', 'fSpin', 'fBtnTxt', false);
+    msg('fMsg', data.message || 'Email sent', data.success ? 'ok' : 'err');
+  });
+}
+
+function toggleForgot() {
+  el('forgotInline').classList.toggle('open');
+}
+
+function doLogout() {
+  P = null; showPage('pgAuth'); ['lUser', 'lPwd', 'rName', 'rEmail', 'rMobile', 'rPwd', 'fEmail'].forEach(id => el(id).value = '');
+}
+
+// ── DASHBOARD ──────────────────────────────────────────────────
+function loadDashboard() {
+  el('dName').textContent = P.name || 'Welcome';
+  el('dEmail').textContent = P.email || '';
+  el('tUsr').textContent = P.name || 'User';
+  callAPI('getTests', { organizationId: ORGANIZATION_ID, participantId: P.participant_id }, function(data) {
+    if (data.success) { renderTests(data.tests); }
+  });
+}
+
+function renderTests(tests) {
+  const grid = el('testGrid');
+  grid.innerHTML = '';
+  if (!tests || tests.length === 0) { grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:var(--sub);">No tests available</p>'; return; }
+  tests.forEach(test => {
+    const card = document.createElement('div');
+    card.className = 'tcard';
+    card.innerHTML = `
+      <div class="ttop"><div class="tbadge">${test.type_of_test || 'Assessment'}</div></div>
+      <div class="tname">${esc(test.name)}</div>
+      <div class="tdesc">${esc(test.description || '')}</div>
+      <div class="tmeta">
+        <div class="mb"><div class="ml">Duration</div><div class="mv">${test.duration_in_minutes} min</div></div>
+        <div class="mb"><div class="ml">Marks</div><div class="mv">${test.total_marks}</div></div>
+      </div>
+      <div style="flex:1;"></div>
+      <button class="bstart" onclick="startTest(${test.test_id})">Start →</button>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+// ── EXAM ──────────────────────────────────────────────────────
+function startTest(tid) {
+  testId = tid;
+  callAPI('getExamData', { testId: tid, organizationId: ORGANIZATION_ID, participantId: P.participant_id }, function(data) {
+    if (!data.success) { msg('lMsg', data.message || 'Cannot start test', 'err'); return; }
+    Qs = data.questions; testInfo = data.test; idx = 0; ans = {}; skp = {}; submitted = false;
+    renderExam();
+    showPage('pgExam');
+    startTimer(testInfo.duration_in_minutes * 60);
+  });
+}
+
+function renderExam() {
+  el('etn').textContent = testInfo.name;
+  el('qTotalCount').textContent = Qs.length;
+  const sbsc = el('sbsc');
+  sbsc.innerHTML = '';
+  const sg = document.createElement('div');
+  sg.className = 'sg';
+  const sgl = document.createElement('div');
+  sgl.className = 'sgl';
+  sgl.textContent = 'All Questions';
+  sg.appendChild(sgl);
+  const grid = document.createElement('div');
+  grid.className = 'qgrid';
+  Qs.forEach((q, i) => {
+    const qb = document.createElement('div');
+    qb.className = 'qb'; qb.textContent = i + 1; qb.id = 'qb' + i;
+    qb.onclick = () => goToQuestion(i);
+    grid.appendChild(qb);
+  });
+  sg.appendChild(grid); sbsc.appendChild(sg);
+  showQuestion(0);
+}
+
+function showQuestion(i) {
+  if (i < 0 || i >= Qs.length) return;
+  idx = i;
+  const q = Qs[i];
+  const qscroll = el('qscroll');
+  qscroll.innerHTML = `
+    <div class="qmr">
+      <div class="qnum">Q${i + 1}</div>
+      <div class="qst">1 mark</div>
+    </div>
+    <div class="qtxt">${esc(q.question)}</div>
+    <div class="opts" id="optsList"></div>
+  `;
+  const opts = el('optsList');
+  q.options.forEach((opt, oi) => {
+    const label = String.fromCharCode(65 + oi);
+    const optDiv = document.createElement('div');
+    optDiv.className = 'opt' + (ans[i] === label ? ' sel' : '');
+    optDiv.onclick = () => selectOption(i, label);
+    optDiv.innerHTML = `<div class="oltr">${label}</div><div class="otxt">${esc(opt)}</div>`;
+    opts.appendChild(optDiv);
+  });
+  updateQBtn(); updateSidebar();
+}
+
+function selectOption(qIdx, label) {
+  ans[qIdx] = label;
+  delete skp[qIdx];
+  showQuestion(qIdx);
+  updateSidebar();
+}
+
+function skipQ() { skp[idx] = true; delete ans[idx]; nextQOrSubmit(); }
+function goToQuestion(i) { showQuestion(i); }
+function prevQ() { if (idx > 0) showQuestion(idx - 1); }
+function nextQOrSubmit() { if (idx < Qs.length - 1) showQuestion(idx + 1); else submitExam(); }
+function goBack() { if (confirm('Exit exam? Answers will be lost.')) { testId = null; Qs = []; showPage('pgDashboard'); clearInterval(timerInt); } }
+
+function updateSidebar() {
+  ['qAnsCount', 'qSkipCount'].forEach((id, i) => el(id).textContent = (i === 0 ? Object.keys(ans).length : Object.keys(skp).length));
+  document.querySelectorAll('.qb').forEach((qb, i) => { 
+    qb.className = 'qb' + (ans[i] ? ' ans' : skp[i] ? ' skp' : '') + (i === idx ? ' cur' : '');
+  });
+}
+
+function updateQBtn() { el('etn').textContent = `${testInfo.name} (Q${idx + 1}/${Qs.length})`; }
+
+function startTimer(sec) {
+  timerSec = sec; startMs = Date.now();
+  timerInt = setInterval(() => {
+    timerSec = Math.max(0, sec - Math.floor((Date.now() - startMs) / 1000));
+    const min = Math.floor(timerSec / 60), s = timerSec % 60;
+    el('timerDisplay').textContent = `Time: ${String(min).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+    if (timerSec === 0) { clearInterval(timerInt); submitExam(); }
+  }, 100);
+}
+
+function submitExam() {
+  if (submitted) return; submitted = true; clearInterval(timerInt);
+  const responses = Object.entries(ans).map(([qIdx, opt]) => {
+    const q = Qs[parseInt(qIdx)];
+    const isCorrect = opt === q.correct_answer;
+    return { questionId: q.question_id, response: opt, correct_answer: q.correct_answer, marks: isCorrect ? (q.positive_marks || 1) : 0 };
+  });
+  callAPI('submitResult', { participantId: P.participant_id, testId: testId, responses: responses, timeTaken: timerSec, organizationId: ORGANIZATION_ID }, function(data) {
+    if (data.success) { alert('Test submitted! Thank you.'); showPage('pgDashboard'); loadDashboard(); }
+    else { alert('Error submitting. Please try again.'); }
+  });
+}
+
+// ── INIT ──────────────────────────────────────────────────────
+showPage('pgAuth');

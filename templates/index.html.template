@@ -1,0 +1,170 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{{institution_app_title}}</title>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@600;700&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="pgAuth" class="page active">
+  <div class="auth-left">
+    <div class="lb">
+      <div class="aico" style="background:{{institution_theme_color_hex}}4d;">{{institution_logo_link}}</div>
+      <h1>{{institution_app_title}}</h1>
+      <p>{{institution_app_subtitle}}</p>
+    </div>
+  </div>
+  <div class="auth-right">
+    <div class="acard">
+      <div class="tabs">
+        <div class="tab active" id="tabSignin" onclick="tab('signin')">Sign In</div>
+        <div class="tab" id="tabRegister" onclick="tab('register')">Register</div>
+      </div>
+      <!-- SIGN IN -->
+      <div class="tpanel active" id="panelSignin">
+        <div class="msg" id="lMsg"></div>
+        <div class="field">
+          <label>Email or Mobile <span class="req">*</span></label>
+          <div class="irow"><span class="ico">👤</span>
+            <input type="text" id="lUser" placeholder="email or 10-digit mobile" autocomplete="username"></div>
+        </div>
+        <div class="field">
+          <label>Password <span class="req">*</span></label>
+          <div class="irow"><span class="ico">🔒</span>
+            <input type="password" id="lPwd" placeholder="Enter your password" autocomplete="current-password">
+            <span class="eye" onclick="togglePwd('lPwd')">👁</span></div>
+        </div>
+        <div class="field" style="display:flex;align-items:center;justify-content:space-between;margin-top:16px;margin-bottom:12px;">
+          <label style="margin-bottom:0;">Admin Login</label>
+          <div class="toggle-switch">
+            <input type="checkbox" id="adminToggle" class="toggle-input">
+            <label for="adminToggle" class="toggle-label"></label>
+          </div>
+        </div>
+        <div class="forgot-link-row">
+          <button onclick="toggleForgot()">Forgot Password?</button>
+        </div>
+        <div class="forgot-inline" id="forgotInline">
+          <div class="fi-title">🔑 Reset Password</div>
+          <div class="msg" id="fMsg"></div>
+          <div class="field" style="margin-bottom:10px;">
+            <label>Registered Email <span class="req">*</span></label>
+            <div class="irow"><span class="ico">✉️</span>
+              <input type="email" id="fEmail" placeholder="you@example.com"></div>
+          </div>
+          <button class="btn-p" id="fBtn" onclick="doForgot()" style="margin-top:0;">
+            <span id="fBtnTxt">Send Password</span><div class="spin" id="fSpin"></div>
+          </button>
+        </div>
+        <button class="btn-p" id="lBtn" onclick="doLogin()">
+          <span id="lBtnTxt">Sign In</span><div class="spin" id="lSpin"></div>
+        </button>
+        <p style="text-align:center;margin-top:11px;font-size:.8rem;color:var(--sub);">
+          New user? <button class="tlink" onclick="tab('register')">Create an account →</button>
+        </p>
+      </div>
+      <!-- REGISTER PANEL -->
+      <div class="tpanel" id="panelRegister">
+        <div class="msg" id="rMsg"></div>
+        <p style="text-align:center;font-size:.75rem;color:var(--sub);margin-bottom:16px;">Create your account to get started</p>
+        <div class="sdiv">Personal Details</div>
+        <div class="fgrid">
+          <div class="field full"><label>Full Name <span class="req">*</span></label>
+            <div class="irow"><span class="ico">👤</span><input type="text" id="rName" placeholder="Full name"></div></div>
+          <div class="field"><label>Email Address <span class="req">*</span></label>
+            <div class="irow"><span class="ico">✉️</span><input type="email" id="rEmail" placeholder="you@email.com"></div></div>
+          <div class="field"><label>Mobile Number <span class="req">*</span></label>
+            <div class="irow"><span class="ico">📱</span><input type="tel" id="rMobile" placeholder="10-digit mobile"></div></div>
+          <div class="field full"><label>Password <span class="req">*</span></label>
+            <div class="irow"><span class="ico">🔒</span><input type="password" id="rPwd" placeholder="Create password">
+              <span class="eye" onclick="togglePwd('rPwd')">👁</span></div></div>
+        </div>
+        <button class="btn-p" id="rBtn" onclick="doRegister()">
+          <span id="rBtnTxt">Create Account</span><div class="spin" id="rSpin"></div>
+        </button>
+        <p style="text-align:center;margin-top:11px;font-size:.8rem;color:var(--sub);">
+          Already have an account? <button class="tlink" onclick="tab('signin')">Sign in →</button>
+        </p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div id="pgDashboard" class="page">
+  <div class="topbar">
+    <div class="brand">
+      <div class="logo">🎓</div>
+      <span class="brand-name">{{institution_app_title}}</span>
+    </div>
+    <div class="topbar-right">
+      <div class="user-pill">
+        <span id="tUsr">User</span>
+      </div>
+      <button class="btn-ghost" onclick="doLogout()">Logout</button>
+    </div>
+  </div>
+  <div class="dmain">
+    <div class="pbanner">
+      <div class="avt" id="davt">👤</div>
+      <div class="pi">
+        <h2 id="dName">Welcome</h2>
+        <div class="pmg">
+          <div class="pm">📧 <span id="dEmail">Loading...</span></div>
+          <div class="pm">🎓 <span id="dRole">Participant</span></div>
+        </div>
+      </div>
+    </div>
+    <div class="shdr">
+      <h3>Available Assessments</h3>
+    </div>
+    <div class="tgrid" id="testGrid"></div>
+  </div>
+</div>
+
+<!-- EXAM -->
+<div id="pgExam" class="page">
+  <div class="ebar">
+    <div class="ebl">
+      <button class="bbk" onclick="goBack()">← Back</button>
+      <span class="etn" id="etn">Test</span>
+      <div class="tpill" id="tStatus">Ready</div>
+    </div>
+    <div class="tpill" id="timerDisplay">Time: --:--</div>
+  </div>
+  <div class="pstrip"><div class="pfill" id="pfill"></div></div>
+  <div class="elayout">
+    <div class="esb">
+      <div class="sbh">Questions</div>
+      <div class="sbsc" id="sbsc"></div>
+      <div class="sbst">
+        <div class="sbs"><div class="sv" id="qAnsCount">0</div><div class="sl">Answered</div></div>
+        <div class="sbs"><div class="sv" id="qSkipCount">0</div><div class="sl">Skipped</div></div>
+        <div class="sbs"><div class="sv" id="qTotalCount">0</div><div class="sl">Total</div></div>
+      </div>
+      <div class="sbleg">
+        <div class="leg"><div class="ld" style="background:#dde1ec;"></div><span>Not Visited</span></div>
+        <div class="leg"><div class="ld" style="background:#fff8e1;"></div><span>Skipped</span></div>
+        <div class="leg"><div class="ld" style="background:linear-gradient(135deg,var(--sky),var(--indigo));"></div><span>Answered</span></div>
+      </div>
+    </div>
+    <div class="econt">
+      <div class="qscroll" id="qscroll"></div>
+      <div class="eftr">
+        <div class="nrow">
+          <button class="bn bprev" onclick="prevQ()" style="margin-right:10px;">← Previous</button>
+          <button class="bn" style="background:linear-gradient(135deg,var(--sky),var(--indigo));color:#fff;" onclick="skipQ()">Skip</button>
+        </div>
+        <button class="bn" style="background:linear-gradient(135deg,var(--sky),var(--indigo));color:#fff;" onclick="nextQOrSubmit()">Next →</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="script.js"></script>
+</body>
+</html>
