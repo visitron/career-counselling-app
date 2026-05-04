@@ -49,6 +49,10 @@ jspm_packages/
 .vscode/
 .idea/
 
+# Backend versions
+backend_stable_version.gs
+backend_v2.gs
+
 # OS generated files
 .DS_Store
 .DS_Store?

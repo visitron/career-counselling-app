@@ -12,6 +12,8 @@ var submitted = false;
 var pfCache = {};
 // Admin state
 var allParticipants = [], selectedParticipants = [], allTests = [], selectedTestIds = [], searchOriginal = [];
+// Organization ID - CHANGE THIS TO UPDATE ACROSS THE APP
+const ORGANIZATION_ID = '5C7C0001-3F00-0000-0000-000000000000';
 // Option marks helper (if needed for dynamic marking schemes)
 function optionMarks(i) { return Math.max(5 - i, 1); }
 
@@ -88,7 +90,7 @@ function doLogin() {
   callAPI('loginUser', {
     emailOrMobile: u,
     password: pw,
-    organizationId: 'A7X2',
+    organizationId: ORGANIZATION_ID,
     role: role
   }, function (r) {
     busy('lBtn', 'lSpin', 'lBtnTxt', false);
@@ -123,7 +125,7 @@ function loadAdminDashboard() {
   const supportBtn = el('supportBtn');
   if (supportBtn) supportBtn.classList.remove('exam-mode');
   showPage('pgAdminDashboard');
-  callAPI('getParticipants', { organizationId: 'A7X2' }, function (r) {
+  callAPI('getParticipants', { organizationId: ORGANIZATION_ID }, function (r) {
     if (r.success) {
       allParticipants = r.participants || [];
       searchOriginal = JSON.parse(JSON.stringify(allParticipants));
@@ -234,7 +236,7 @@ function openTestAssignmentModal() {
   el('assignConfirmBtn').disabled = true;
   el('assignConfirmBtn').style.opacity = '0.55';
   selectedTestIds = [];
-  var orgId = P && P.organization_id ? P.organization_id : 'A7X2';
+  var orgId = P && P.organization_id ? P.organization_id : ORGANIZATION_ID;
   console.log('Calling getTests with organizationId:', orgId);
   callAPI('getTests', { organizationId: orgId }, function (r) {
     console.log('getTests response:', r);
@@ -314,7 +316,7 @@ function confirmTestAssignment() {
   }
   el('assignConfirmBtn').disabled = true;
   el('assignConfirmBtn').style.opacity = '0.55';
-  var orgId = P && P.organization_id ? P.organization_id : 'A7X2';
+  var orgId = P && P.organization_id ? P.organization_id : ORGANIZATION_ID;
   var adminId = (P && P.admin_id) ? P.admin_id : (P && P.participant_id ? P.participant_id : null);
   console.log('Assigning tests. testIds:', selectedTestIds, 'participantIds:', selectedParticipants, 'orgId:', orgId, 'adminId:', adminId);
   callAPI('assignTest', {
@@ -364,7 +366,7 @@ function doLogout() {
 
 function doRegister() {
   el('rMsg').style.display = 'none';
-  var orgId = 'A7X2';
+  var orgId = ORGANIZATION_ID;
   if (!orgId) { msg('rMsg', 'Please select an organization.', 'err'); return; }
   var data = {
     organization_id: orgId,
@@ -436,7 +438,7 @@ function loadDashboard() {
   const supportBtn = el('supportBtn');
   if (supportBtn) supportBtn.classList.remove('exam-mode');
   showPage('pgDashboard');
-  callAPI('getTests', { organizationId: 'A7X2', participantId: P.participant_id }, function (r) {
+  callAPI('getTests', { organizationId: ORGANIZATION_ID, participantId: P.participant_id }, function (r) {
     if (r.success) renderTests(r.tests || []);
     else el('dTests').innerHTML = '<p style="color:var(--err);padding:30px;text-align:center;">Failed: ' + esc(r.message) + '</p>';
   }, function (e) {
@@ -493,7 +495,7 @@ function renderTests(tests) {
 
 function prefetch(tid) {
   pfCache[tid] = { status: 'loading', data: null };
-  callAPI('getExamData', { testId: tid, organizationId: 'A7X2', participantId: P.participant_id }, function (data) {
+  callAPI('getExamData', { testId: tid, organizationId: ORGANIZATION_ID, participantId: P.participant_id }, function (data) {
     if (data.success) {
       pfCache[tid] = { status: 'ready', data: data };
       var b = el('pf_' + tid);
@@ -539,7 +541,7 @@ function startTest(tid) {
   var stInt = setInterval(function () {
     si = (si + 1) % steps.length; var e = el('lstep'); if (e) e.textContent = steps[si];
   }, 1800);
-  callAPI('getExamData', { testId: tid, organizationId: 'A7X2', participantId: P.participant_id }, function (data) {
+  callAPI('getExamData', { testId: tid, organizationId: ORGANIZATION_ID, participantId: P.participant_id }, function (data) {
     clearInterval(stInt);
     if (data.success) {
       pfCache[tid] = { status: 'ready', data: data };
@@ -786,7 +788,7 @@ function doSubmit() {
     testId: parseInt(testId),
     responses: responses,
     timeTaken: tt,
-    organizationId: 'A7X2'
+    organizationId: ORGANIZATION_ID
   }, function () {
     submitted = false;
     buildResultScreen(responses, tt);
@@ -872,7 +874,7 @@ function openSupportModal() {
   });
   
   // Get organization ID from current participant/admin
-  const orgId = 'A7X2'; // Using the same organization ID as the rest of the app
+  const orgId = ORGANIZATION_ID; // Using the same organization ID as the rest of the app
   callAPI('getOrgSupportInfo', { organizationId: orgId }, function(supportData) {
     if (supportData.success) {
       const contactNumber = supportData.contact_number;
