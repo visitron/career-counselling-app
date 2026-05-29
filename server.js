@@ -218,6 +218,7 @@ function prepareReplacements(data) {
     guid: data.guid,
     app_id: data.app_id,
     spreadsheet_url: data.spreadsheet_url,
+    SPREADSHEET_URL: data.spreadsheet_url,
     institution_name: org.institution_name || 'Institution',
     institution_app_title: org.institution_app_title || 'Counselling App',
     institution_app_subtitle: org.institution_app_subtitle || 'Psychometric assessments',
