@@ -49,6 +49,13 @@ jspm_packages/
 .vscode/
 .idea/
 
+# Contact app - exclude all files except index_v2.html
+application/contact app/API_CONFIGURATION.md
+application/contact app/code.gs
+application/contact app/FEATURE_COMPARISON.md
+application/contact app/index_v1.html
+application/contact app/sit_staff_directory - Staff.csv
+
 # Test and documentation files (development only)
 test-requests.http
 test-server.js
