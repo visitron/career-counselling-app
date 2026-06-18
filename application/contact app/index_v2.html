@@ -3,8 +3,8 @@
 <head>
 <meta charset="UTF-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover"/>
-<title>SIT Staff Directory</title>
-<meta name="theme-color" content="#0f2557"/>
+<title>{{institution_app_title}}</title>
+<meta name="theme-color" content="{{institution_theme_color_hex}}"/>
 <meta name="mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-capable" content="yes"/>
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
@@ -542,7 +542,7 @@ textarea.edit-inp{resize:vertical;min-height:80px;line-height:1.6;}
   <div class="exit-dialog">
     <span class="exit-icon">🚪</span>
     <div class="exit-title">Do you want to exit?</div>
-    <div class="exit-sub">You will be signed out of the SIT Staff Directory.</div>
+    <div class="exit-sub">You will be signed out of {{institution_name}}.</div>
     <div class="exit-btns">
       <button class="exit-btn-no" id="exitNo">No, Stay</button>
       <button class="exit-btn-yes" id="exitYes">Yes, Exit</button>
@@ -744,7 +744,7 @@ textarea.edit-inp{resize:vertical;min-height:80px;line-height:1.6;}
       </div>
       <!-- Institution -->
       <div style="text-align:center;border-bottom:1px solid #ddd;padding:12px 16px;background:#fafafa;">
-        <div style="font-size:11px;font-weight:700;color:#6B3410;letter-spacing:.07em;text-transform:uppercase;">Siddaganga Institute of Technology</div>
+        <div style="font-size:11px;font-weight:700;color:#6B3410;letter-spacing:.07em;text-transform:uppercase;">{{institution_name}}</div>
         <div id="scDept" style="font-size:10px;color:#333;margin-top:3px;"></div>
         <div style="font-size:9px;color:#777;margin-top:2px;">Tumakuru – 572 103, Karnataka, India</div>
       </div>
@@ -815,7 +815,7 @@ textarea.edit-inp{resize:vertical;min-height:80px;line-height:1.6;}
             </div>
           </div>
           <div class="fc-back-inst">
-            <div class="fc-back-inst-name">SIDDAGANGA INSTITUTE OF TECHNOLOGY</div>
+            <div class="fc-back-inst-name">{{institution_name}}</div>
             <div class="fc-back-dept-label" id="fcBackDept">Department</div>
           </div>
           <div class="fc-back-body" id="fcBackBody">
@@ -868,10 +868,10 @@ textarea.edit-inp{resize:vertical;min-height:80px;line-height:1.6;}
 <!-- LOGIN PAGE -->
 <div id="loginPage" class="login-page">
   <div class="login-card">
-    <div class="login-logo"><span>S</span></div>
-    <h2>Staff Directory</h2>
-    <p class="login-inst">Siddaganga Institute of Technology</p>
-    <p class="login-sub" id="loginSub">Sign in with your registered mobile number</p>
+    <div class="login-logo"><span>{{institution_logo_link}}</span></div>
+    <h2>{{institution_app_title}}</h2>
+    <p class="login-inst">{{institution_name}}</p>
+    <p class="login-sub" id="loginSub">{{institution_app_subtitle}}</p>
     <div class="err" id="loginErr"></div>
     <div class="field" id="phoneFieldWrap">
       <label>Mobile Number</label>
@@ -897,10 +897,10 @@ textarea.edit-inp{resize:vertical;min-height:80px;line-height:1.6;}
   <header class="hdr">
     <div class="hdr-inner">
       <div class="hdr-left">
-        <div class="hdr-logo">S</div>
+        <div class="hdr-logo" id="hdrLogoChar">{{institution_logo_link}}</div>
         <div class="hdr-title">
-          <h1>SIT Staff Directory</h1>
-          <p>Siddaganga Institute of Technology</p>
+          <h1 id="hdrTitle">{{institution_app_title}}</h1>
+          <p id="hdrInst">{{institution_name}}</p>
         </div>
       </div>
       <div class="hdr-right">
@@ -955,8 +955,8 @@ textarea.edit-inp{resize:vertical;min-height:80px;line-height:1.6;}
         <h2>Technomedia Software Solutions Pvt. Ltd.</h2>
         <p>Technomedia Software Solutions Pvt. Ltd. is a technology-oriented organisation committed to delivering innovative software solutions and fostering industry-ready talent through structured internship and training programs.</p>
         <p>Under the leadership of <strong>Dr. Joydeep Roy Choudhury</strong>, the company actively collaborates with academic institutions to bridge the gap between theoretical knowledge and real-world application.</p>
-        <h3>Internship Program at SIT</h3>
-        <p>As part of the internship program conducted in association with Siddaganga Institute of Technology (SIT), Technomedia provides hands-on experience, real-time project exposure, and professional mentorship.</p>
+        <h3>Internship Program at {{institution_name}}</h3>
+        <p>As part of the internship program conducted in association with {{institution_name}}, Technomedia provides hands-on experience, real-time project exposure, and professional mentorship.</p>
       </div>
       <div class="acard">
         <h3 style="margin-top:0">Contact for Internship &amp; Queries</h3>
@@ -1546,8 +1546,6 @@ function fetchStaffFromAPI() {
       if (result.success && result.staff) {
         console.log('Staff data received, count:', result.staff.length);
         allStaff = result.staff;
-        // Normalize all IDs to strings for consistent lookups
-        allStaff.forEach(function(s) { s.id = String(s.id); });
         console.log('allStaff updated, length:', allStaff.length);
         applyProfileEdits();
         cacheStaffData(allStaff);
@@ -1557,8 +1555,6 @@ function fetchStaffFromAPI() {
         var cached = getCachedStaffData();
         if (cached) {
           allStaff = cached;
-          // Normalize all IDs to strings for consistent lookups
-          allStaff.forEach(function(s) { s.id = String(s.id); });
           applyProfileEdits();
           gid('offlineBanner').classList.add('show');
           showToast('⚠️ Using cached data (offline mode)');
@@ -1572,8 +1568,6 @@ function fetchStaffFromAPI() {
       var cached = getCachedStaffData();
       if (cached) {
         allStaff = cached;
-        // Normalize all IDs to strings for consistent lookups
-        allStaff.forEach(function(s) { s.id = String(s.id); });
         applyProfileEdits();
         gid('offlineBanner').classList.add('show');
         showToast('⚠️ No connection - using cached data');
@@ -1602,18 +1596,6 @@ function applyProfileEdits() {
       });
     }
   } catch(x) {}
-}
-
-// Helper function to get staff by ID from allStaff (primary data source)
-function getStaffById(id) {
-  if (!id) return null;
-  var idStr = String(id);
-  for (var i = 0; i < allStaff.length; i++) {
-    if (String(allStaff[i].id) === idStr) {
-      return allStaff[i];
-    }
-  }
-  return null;
 }
 
 (function(){
@@ -1761,7 +1743,7 @@ function registerBiometric(){
   btn.innerHTML='<span class="spinner sm"></span> Registering…';
   var challenge=new Uint8Array(32); crypto.getRandomValues(challenge);
   var userId=new TextEncoder().encode(currentUser);
-  navigator.credentials.create({publicKey:{challenge:challenge,rp:{name:'SIT Staff Directory',id:location.hostname||'localhost'},user:{id:userId,name:currentUser,displayName:currentUser},pubKeyCredParams:[{alg:-7,type:'public-key'},{alg:-257,type:'public-key'}],authenticatorSelection:{userVerification:'preferred'},timeout:60000}})
+  navigator.credentials.create({publicKey:{challenge:challenge,rp:{name:'{{institution_name}}',id:location.hostname||'localhost'},user:{id:userId,name:currentUser,displayName:currentUser},pubKeyCredParams:[{alg:-7,type:'public-key'},{alg:-257,type:'public-key'}],authenticatorSelection:{userVerification:'preferred'},timeout:60000}})
     .then(function(cred){
       var rawId=new Uint8Array(cred.rawId),bioStr=encodeBioString(rawId);
       lsSet(BIO_KEY,'1'); lsSet(BIO_MOB,currentUser); lsSet(BIO_STR_KEY,bioStr); lsSet(BIO_CRED_KEY,cred.id);
@@ -2049,11 +2031,9 @@ var _fcAutoFlipTimer=null;
 var _currentFCStaff=null;
 
 function openFlipCard(id){
-  var s = getStaffById(id);
-  if(!s) {
-    console.warn('Contact not found for ID:', id);
-    return;
-  }
+  var s=null;
+  for(var i=0;i<STAFF_DATA.length;i++){ if(STAFF_DATA[i].id===id){ s=STAFF_DATA[i]; break; } }
+  if(!s) return;
   _currentFCStaff=s;
 
   var mob=(s.mobile || "").toString().replace(/\D/g,'').slice(-10);
@@ -2099,7 +2079,7 @@ function openFlipCard(id){
   var mailBtn=gid('fcMailBtn');
   if(emailOk){ mailBtn.disabled=false; mailBtn.onclick=function(){ window.location='mailto:'+s.email; }; }
   else { mailBtn.disabled=true; }
-  var mapsAddr='Siddaganga Institute of Technology, Tumakuru 572103';
+  var mapsAddr='{{institution_name}}, Tumakuru 572103';
   gid('fcMapBtn').onclick=function(){ window.open('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(mapsAddr),'_blank'); };
   gid('fcShareBtn').onclick=function(){ fcShare(s); };
 
@@ -2132,13 +2112,13 @@ gid('fcScene').addEventListener('click',function(){
 });
 
 function fcSaveContact(s){
-  var mob=(s.mobile || "").toString().replace(/\D/g,'').slice(-10);
+  var mob=s.mobile?s.mobile.replace(/\D/g,'').slice(-10):'';
   var emailOk=hasEmail(s);
   var vcard=['BEGIN:VCARD','VERSION:3.0','FN:'+s.name,'N:'+s.name+';;;;',
-    'TITLE:'+s.designation,'ORG:Siddaganga Institute of Technology;'+s.department,
+    'TITLE:'+s.designation,'ORG:{{institution_name}};'+s.department,
     mob?'TEL;TYPE=CELL:+91'+mob:'',
     emailOk?'EMAIL:'+s.email:'',
-    'ADR;TYPE=WORK:;;Siddaganga Institute of Technology;Tumakuru;Karnataka;572103;India',
+    'ADR;TYPE=WORK:;;{{institution_name}};Tumakuru;Karnataka;572103;India',
     'END:VCARD'].filter(Boolean).join('\n');
   var blob=new Blob([vcard],{type:'text/vcard'});
   var a=document.createElement('a');
@@ -2150,7 +2130,7 @@ function fcSaveContact(s){
 }
 
 function fcShare(s){
-  var mob=(s.mobile || "").toString().replace(/\D/g,'').slice(-10);
+  var mob=s.mobile?s.mobile.replace(/\D/g,'').slice(-10):'';
   var emailOk=hasEmail(s);
   var initials=getInitials(s.name);
 
@@ -2195,10 +2175,10 @@ function fcShare(s){
   }
 
   /* Share / Copy buttons */
-  var text=s.name+'\n'+s.designation+'\n'+s.department+'\nSIT, Tumakuru – 572 103'+(mob?'\n📱 +91 '+mob:'')+(emailOk?'\n✉️ '+s.email:'');
+  var text=s.name+'\n'+s.designation+'\n'+s.department+'\n{{institution_name}}, Tumakuru – 572 103'+(mob?'\n📱 +91 '+mob:'')+(emailOk?'\n✉️ '+s.email:'');
   gid('scNativeShare').onclick=function(){
     if(navigator.share){
-      navigator.share({title:s.name+' – SIT',text:text}).catch(function(){copyText(text,'Details copied!');});
+      navigator.share({title:s.name+' – {{institution_name}}',text:text}).catch(function(){copyText(text,'Details copied!');});
     } else {
       copyText(text,'Details copied!');
     }
@@ -2240,14 +2220,12 @@ gid('flipcardOverlay').addEventListener('click',function(e){
    DETAILS MODAL
    ══════════════════════════════════════════ */
 function openModal(id){
-  var s = getStaffById(id);
-  if(!s) {
-    console.warn('Contact not found for ID:', id);
-    return;
-  }
+  var s=null;
+  for(var i=0;i<STAFF_DATA.length;i++){ if(STAFF_DATA[i].id===id){ s=STAFF_DATA[i]; break; } }
+  if(!s) return;
   currentModalStaff=s;
-  var mob=(s.mobile || "").toString().replace(/\D/g,'').slice(-10);
-  var wa=(s.whatsapp || "").toString().replace(/\D/g,'').slice(-10);
+  var mob=s.mobile?s.mobile.replace(/\D/g,'').slice(-10):'';
+  var wa=s.whatsapp?s.whatsapp.replace(/\D/g,'').slice(-10):'';
   var emailOk=hasEmail(s);
   gid('mAv').textContent=getInitials(s.name);
   gid('mName').textContent=s.name;
@@ -2302,7 +2280,6 @@ function openModal(id){
 function _closeModalVisual(){
   gid('detailsOverlay').classList.remove('open');
   document.body.style.overflow='';
-  currentModalStaff=null;
 }
 gid('modalCloseBtn').addEventListener('click',function(){
   _closeModalVisual();
