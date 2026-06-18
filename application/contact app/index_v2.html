@@ -1545,7 +1545,7 @@ function fetchStaffFromAPI() {
       console.log('API Response:', result);
       if (result.success && result.staff) {
         console.log('Staff data received, count:', result.staff.length);
-        allStaff = result.staff;
+        allStaff = (result.staff || []).map(normalizeStaffRecord);
         console.log('allStaff updated, length:', allStaff.length);
         applyProfileEdits();
         cacheStaffData(allStaff);
@@ -1554,7 +1554,7 @@ function fetchStaffFromAPI() {
       } else {
         var cached = getCachedStaffData();
         if (cached) {
-          allStaff = cached;
+          allStaff = (cached || []).map(normalizeStaffRecord);
           applyProfileEdits();
           gid('offlineBanner').classList.add('show');
           showToast('⚠️ Using cached data (offline mode)');
@@ -1567,7 +1567,7 @@ function fetchStaffFromAPI() {
     .catch(function(err) {
       var cached = getCachedStaffData();
       if (cached) {
-        allStaff = cached;
+        allStaff = (cached || []).map(normalizeStaffRecord);
         applyProfileEdits();
         gid('offlineBanner').classList.add('show');
         showToast('⚠️ No connection - using cached data');
@@ -1616,6 +1616,31 @@ function lsDel(k){ try{ localStorage.removeItem(k); }catch(e){} }
 function isMyRecord(s){
   if(!currentUser||!s.mobile) return false;
   return (s.mobile || "").toString().replace(/\D/g,'').slice(-10)===currentUser.replace(/\D/g,'').slice(-10);
+}
+
+// Normalization helpers for staff data type consistency
+function normalizeStaffId(id) {
+  return (id || '').toString().trim().replace(/^0+/, '');
+}
+function normalizeMobile(value) {
+  return (value || '').toString().replace(/\D/g, '').slice(-10);
+}
+function normalizeStaffRecord(s) {
+  if (!s) return s;
+  s.id = normalizeStaffId(s.id);
+  s.mobile = normalizeMobile(s.mobile);
+  s.whatsapp = normalizeMobile(s.whatsapp);
+  return s;
+}
+
+// Get staff by ID from allStaff (primary data source)
+function getStaffById(id) {
+  var key = normalizeStaffId(id);
+  if (!allStaff || !allStaff.length) return null;
+  for (var i = 0; i < allStaff.length; i++) {
+    if (normalizeStaffId(allStaff[i].id) === key) return allStaff[i];
+  }
+  return null;
 }
 
 function showPageSpinner(msg){ gid('pageSpinnerMsg').textContent=msg||'Loading…'; gid('pageSpinner').classList.add('show'); }
@@ -2031,9 +2056,11 @@ var _fcAutoFlipTimer=null;
 var _currentFCStaff=null;
 
 function openFlipCard(id){
-  var s=null;
-  for(var i=0;i<STAFF_DATA.length;i++){ if(STAFF_DATA[i].id===id){ s=STAFF_DATA[i]; break; } }
-  if(!s) return;
+  var s = getStaffById(id);
+  if(!s) {
+    console.warn('Contact not found for flip-card id:', id);
+    return;
+  }
   _currentFCStaff=s;
 
   var mob=(s.mobile || "").toString().replace(/\D/g,'').slice(-10);
@@ -2112,7 +2139,7 @@ gid('fcScene').addEventListener('click',function(){
 });
 
 function fcSaveContact(s){
-  var mob=s.mobile?s.mobile.replace(/\D/g,'').slice(-10):'';
+  var mob=(s.mobile || "").toString().replace(/\D/g,'').slice(-10);
   var emailOk=hasEmail(s);
   var vcard=['BEGIN:VCARD','VERSION:3.0','FN:'+s.name,'N:'+s.name+';;;;',
     'TITLE:'+s.designation,'ORG:{{institution_name}};'+s.department,
@@ -2130,7 +2157,7 @@ function fcSaveContact(s){
 }
 
 function fcShare(s){
-  var mob=s.mobile?s.mobile.replace(/\D/g,'').slice(-10):'';
+  var mob=(s.mobile || "").toString().replace(/\D/g,'').slice(-10);
   var emailOk=hasEmail(s);
   var initials=getInitials(s.name);
 
@@ -2220,12 +2247,14 @@ gid('flipcardOverlay').addEventListener('click',function(e){
    DETAILS MODAL
    ══════════════════════════════════════════ */
 function openModal(id){
-  var s=null;
-  for(var i=0;i<STAFF_DATA.length;i++){ if(STAFF_DATA[i].id===id){ s=STAFF_DATA[i]; break; } }
-  if(!s) return;
+  var s = getStaffById(id);
+  if(!s) {
+    console.warn('Contact not found for modal id:', id);
+    return;
+  }
   currentModalStaff=s;
-  var mob=s.mobile?s.mobile.replace(/\D/g,'').slice(-10):'';
-  var wa=s.whatsapp?s.whatsapp.replace(/\D/g,'').slice(-10):'';
+  var mob=(s.mobile || "").toString().replace(/\D/g,'').slice(-10);
+  var wa=(s.whatsapp || "").toString().replace(/\D/g,'').slice(-10);
   var emailOk=hasEmail(s);
   gid('mAv').textContent=getInitials(s.name);
   gid('mName').textContent=s.name;
@@ -2280,6 +2309,7 @@ function openModal(id){
 function _closeModalVisual(){
   gid('detailsOverlay').classList.remove('open');
   document.body.style.overflow='';
+  currentModalStaff=null;
 }
 gid('modalCloseBtn').addEventListener('click',function(){
   _closeModalVisual();
