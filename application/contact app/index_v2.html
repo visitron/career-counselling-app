@@ -746,7 +746,7 @@ textarea.edit-inp{resize:vertical;min-height:80px;line-height:1.6;}
       <div style="text-align:center;border-bottom:1px solid #ddd;padding:12px 16px;background:#fafafa;">
         <div style="font-size:11px;font-weight:700;color:#6B3410;letter-spacing:.07em;text-transform:uppercase;">{{institution_name}}</div>
         <div id="scDept" style="font-size:10px;color:#333;margin-top:3px;"></div>
-        <div style="font-size:9px;color:#777;margin-top:2px;">Tumakuru – 572 103, Karnataka, India</div>
+        <div style="font-size:9px;color:#777;margin-top:2px;">{{institution_address}}</div>
       </div>
       <!-- Contact rows -->
       <div style="padding:18px 18px 14px;">
@@ -768,7 +768,7 @@ textarea.edit-inp{resize:vertical;min-height:80px;line-height:1.6;}
             <div id="scEmail" style="font-size:13px;font-weight:600;color:#1a1a2e;font-family:sans-serif;word-break:break-all;"></div>
           </div>
         </div>
-        <div style="border-top:1px solid #eee;padding-top:12px;text-align:center;font-size:9px;color:#aaa;font-family:sans-serif;letter-spacing:.04em;">WORK IS WORSHIP · SSES</div>
+        <div style="border-top:1px solid #eee;padding-top:12px;text-align:center;font-size:9px;color:#aaa;font-family:sans-serif;letter-spacing:.04em;">Powered by Technomedia Software Solutions Pvt. Ltd.</div>
       </div>
     </div>
     <!-- Quick action buttons: Call & Email -->
@@ -821,7 +821,7 @@ textarea.edit-inp{resize:vertical;min-height:80px;line-height:1.6;}
           <div class="fc-back-body" id="fcBackBody">
             <!-- filled by JS -->
           </div>
-          <div class="fc-back-footer">Tumakuru – 572 103, Karnataka, India</div>
+          <div class="fc-back-footer">{{institution_address}}</div>
         </div>
 
       </div><!-- .fc-card -->
@@ -1843,6 +1843,42 @@ gid('loginBtn').addEventListener('click',function(){
 gid('phoneInput').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); gid('passwordInput').focus(); } });
 gid('passwordInput').addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); gid('loginBtn').click(); } });
 
+/* ══════════════════════════════════════════
+   LOGO INITIALIZATION - Handle URL vs Emoji
+   ══════════════════════════════════════════ */
+function initializeLogo(){
+  // Handle header logo
+  var hdrLogo=document.getElementById('hdrLogoChar');
+  if(hdrLogo){
+    var logoLink=(hdrLogo.textContent||'').trim();
+    if(logoLink && (logoLink.startsWith('http://') || logoLink.startsWith('https://'))){
+      hdrLogo.innerHTML='<img src="'+logoLink.replace(/"/g,'&quot;')+'" alt="Logo" style="max-width:100%;max-height:100%;object-fit:contain;width:48px;height:48px;border-radius:12px;background:rgba(255,255,255,.05);" onerror="this.src=\'\';" />';
+    }
+  }
+  
+  // Handle login logo
+  var loginPage=document.getElementById('loginPage');
+  if(loginPage){
+    var loginLogoDiv=loginPage.querySelector('.login-logo');
+    if(loginLogoDiv){
+      var span=loginLogoDiv.querySelector('span');
+      if(span){
+        var loginLink=(span.textContent||'').trim();
+        if(loginLink && (loginLink.startsWith('http://') || loginLink.startsWith('https://'))){
+          loginLogoDiv.innerHTML='<img src="'+loginLink.replace(/"/g,'&quot;')+'" alt="Logo" style="max-width:100%;max-height:100%;object-fit:contain;width:64px;height:64px;border-radius:20px;background:linear-gradient(135deg,var(--navy),var(--blue));" onerror="this.parentElement.style.background=\'linear-gradient(135deg,var(--navy),var(--blue))\';this.style.display=\'none\';" />';
+        }
+      }
+    }
+  }
+}
+
+// Initialize logo when DOM is ready
+if(document.readyState==='loading'){
+  document.addEventListener('DOMContentLoaded',initializeLogo);
+} else {
+  initializeLogo();
+}
+
 function showApp(name){
   showPageSpinner('Opening directory…');
   gid('loginPage').style.display='none';
@@ -2106,7 +2142,7 @@ function openFlipCard(id){
   var mailBtn=gid('fcMailBtn');
   if(emailOk){ mailBtn.disabled=false; mailBtn.onclick=function(){ window.location='mailto:'+s.email; }; }
   else { mailBtn.disabled=true; }
-  var mapsAddr='{{institution_name}}, Tumakuru 572103';
+  var mapsAddr='{{institution_name}}, {{institution_address}}';
   gid('fcMapBtn').onclick=function(){ window.open('https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(mapsAddr),'_blank'); };
   gid('fcShareBtn').onclick=function(){ fcShare(s); };
 
@@ -2145,7 +2181,7 @@ function fcSaveContact(s){
     'TITLE:'+s.designation,'ORG:{{institution_name}};'+s.department,
     mob?'TEL;TYPE=CELL:+91'+mob:'',
     emailOk?'EMAIL:'+s.email:'',
-    'ADR;TYPE=WORK:;;{{institution_name}};Tumakuru;Karnataka;572103;India',
+    'ADR;TYPE=WORK:;;;{{institution_address}}',
     'END:VCARD'].filter(Boolean).join('\n');
   var blob=new Blob([vcard],{type:'text/vcard'});
   var a=document.createElement('a');
@@ -2202,7 +2238,7 @@ function fcShare(s){
   }
 
   /* Share / Copy buttons */
-  var text=s.name+'\n'+s.designation+'\n'+s.department+'\n{{institution_name}}, Tumakuru – 572 103'+(mob?'\n📱 +91 '+mob:'')+(emailOk?'\n✉️ '+s.email:'');
+  var text=s.name+'\n'+s.designation+'\n'+s.department+'\n{{institution_name}}, {{institution_address}}'+(mob?'\n📱 +91 '+mob:'')+(emailOk?'\n✉️ '+s.email:'');
   gid('scNativeShare').onclick=function(){
     if(navigator.share){
       navigator.share({title:s.name+' – {{institution_name}}',text:text}).catch(function(){copyText(text,'Details copied!');});

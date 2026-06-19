@@ -116,6 +116,7 @@ const organizationDataSchema = {
         institution_name: { type: 'string', minLength: 1 },
         institution_app_title: { type: 'string', minLength: 1 },
         institution_app_subtitle: { type: 'string', minLength: 1 },
+        institution_address: { type: 'string' },
         institution_logo_link: { type: 'string' },
         institution_theme_color_hex: { type: 'string', pattern: '^#[0-9A-Fa-f]{6}$' }
       },
@@ -222,6 +223,7 @@ function prepareReplacements(data) {
     institution_name: org.institution_name || 'Institution',
     institution_app_title: org.institution_app_title || 'Counselling App',
     institution_app_subtitle: org.institution_app_subtitle || 'Psychometric assessments',
+    institution_address: org.institution_address || 'Address not provided',
     institution_logo_link: org.institution_logo_link || '🎓',
     institution_theme_color_hex: themeColor
   };
