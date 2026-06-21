@@ -486,26 +486,6 @@ const server = app.listen(PORT, () => {
   console.log('║    GET  /cache/stats      - Cache statistics             ║');
   console.log('║    DELETE /cache/clear    - Clear cache                  ║');
   console.log('╠════════════════════════════════════════════════════════════╣');
-  console.log('║  Example Request (Career Counselling App - app_id: 1):   ║');
-  console.log('║    POST /api/generate-app                                 ║');
-  console.log('║    Content-Type: application/json                         ║');
-  console.log('║    {                                                      ║');
-  console.log('║      "guid": 5678,                                        ║');
-  console.log('║      "app_id": 1,                                         ║');
-  console.log('║      "spreadsheet_url":                                   ║');
-  console.log('║        "https://docs.google.com/spreadsheets/d/...",     ║');
-  console.log('║      "organization_data": {                               ║');
-  console.log('║        "institution_name": "Example School",              ║');
-  console.log('║        "institution_app_title": "Career App",             ║');
-  console.log('║        "institution_app_subtitle": "Explore careers...",  ║');
-  console.log('║        "institution_logo_link": "🎓",                     ║');
-  console.log('║        "institution_theme_color_hex": "#3d5afe"           ║');
-  console.log('║      }                                                    ║');
-  console.log('║    }                                                      ║');
-  console.log('╠════════════════════════════════════════════════════════════╣');
-  console.log('║  Example Request (Contact App - app_id: 2):              ║');
-  console.log('║    Same format as above, but "app_id": 2                  ║');
-  console.log('╚════════════════════════════════════════════════════════════╝\n');
 });
 
 // Graceful shutdown
